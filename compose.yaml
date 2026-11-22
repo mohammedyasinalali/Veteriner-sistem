@@ -1,0 +1,17 @@
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    platform: linux/amd64
+    container_name: vetklinik-sqlserver
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_PID: Developer
+      MSSQL_MEMORY_LIMIT_MB: "2048"
+      MSSQL_SA_PASSWORD: ${MSSQL_SA_PASSWORD:?.env dosyasinda MSSQL_SA_PASSWORD tanimlayin}
+    ports:
+      - "127.0.0.1:14333:1433"
+    volumes:
+      - mssql-data:/var/opt/mssql
+
+volumes:
+  mssql-data:
