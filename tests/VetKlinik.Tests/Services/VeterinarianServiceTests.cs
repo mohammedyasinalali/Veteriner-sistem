@@ -206,4 +206,27 @@ public class VeterinarianServiceTests(SqlServerFixture fixture) : IClassFixture<
         Assert.False(await db.Veterinarians.AnyAsync(v => v.Id == seed.VetB.Id));
         Assert.False(await db.Users.AnyAsync(u => u.Email == "vetb@test.local"));
     }
+
+    [Fact]
+    public async Task Tampered_days_are_normalized_to_one_entry_per_weekday()
+    {
+        var seed = await fixture.ResetAsync();
+        var (sp, scope, service, _) = Create();
+        using var _s = scope; await using var _p = sp;
+        var form = await FormAsync(service, seed, "tampered@test.local");
+        form.Days =
+        [
+            new() { Day = DayOfWeek.Monday, Works = true, Starts = new(9, 0), Ends = new(12, 0) },
+            new() { Day = DayOfWeek.Monday, Works = true, Starts = new(13, 0), Ends = new(17, 0) },
+            new() { Day = (DayOfWeek)42, Works = true, Starts = new(9, 0), Ends = new(10, 0) },
+        ];
+
+        var result = await service.CreateAsync(form);
+
+        Assert.True(result.Succeeded, string.Join(" ", result.Errors));
+        Assert.Equal(7, form.Days.Count);
+        await using var db = fixture.NewContext();
+        var slot = Assert.Single(await db.Set<VetAvailability>().Where(a => a.VeterinarianId == result.Value!.Id).ToListAsync());
+        Assert.Equal(new TimeOnly(12, 0), slot.Ends);
+    }
 }

@@ -58,6 +58,7 @@ public class VeterinarianService(AppDbContext db, UserManager<ApplicationUser> u
 
     public async Task<ServiceResult<Veterinarian>> CreateAsync(VeterinarianFormModel form)
     {
+        NormalizeDays(form);
         if (string.IsNullOrWhiteSpace(form.Password))
             return ServiceResult<Veterinarian>.Fail("Parola zorunludur.");
         var errors = await ValidateAvailabilityAsync(form.Days);
@@ -95,6 +96,7 @@ public class VeterinarianService(AppDbContext db, UserManager<ApplicationUser> u
         var vet = await FindAsync(id);
         if (vet is null)
             return ServiceResult.Fail("Hekim bulunamadı.");
+        NormalizeDays(form);
         var errors = await ValidateAvailabilityAsync(form.Days);
         if (errors.Length > 0)
             return ServiceResult.Fail(errors);
@@ -125,6 +127,14 @@ public class VeterinarianService(AppDbContext db, UserManager<ApplicationUser> u
         await transaction.CommitAsync();
         return ServiceResult.Ok();
     }
+
+    /// <summary>
+    /// Formdan gelen günleri tam 7 güne (Pazartesi→Pazar) indirger: aynı gün birden fazla gelirse ilki,
+    /// hiç gelmezse "çalışmıyor" kabul edilir, geçersiz gün değerleri yok sayılır.
+    /// </summary>
+    private static void NormalizeDays(VeterinarianFormModel form) =>
+        form.Days = [.. TurkishDays.Week.Select(day =>
+            form.Days.FirstOrDefault(d => d.Day == day) ?? new AvailabilityDayModel { Day = day })];
 
     /// <summary>Çalışılan her gün: başlangıç bitişten önce ve kliniğin o günkü saatleri içinde olmalı.</summary>
     private async Task<string[]> ValidateAvailabilityAsync(IEnumerable<AvailabilityDayModel> days)
