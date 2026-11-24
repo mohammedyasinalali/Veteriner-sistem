@@ -1,0 +1,14 @@
+@model VetKlinik.Web.Models.Admin.ServiceFormModel
+@{ ViewData["Title"] = "Hizmeti Düzenle"; }
+
+<h1 class="h3 mb-3">Hizmeti Düzenle</h1>
+<partial name="_AdminNav" />
+<div class="row"><div class="col-lg-7">
+    <form asp-action="Edit" asp-route-id="@ViewData["Id"]" method="post">
+        <partial name="_Form" model="Model" />
+        <button type="submit" class="btn btn-primary">Kaydet</button>
+        <a asp-action="Index" class="btn btn-link">Vazgeç</a>
+    </form>
+</div></div>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

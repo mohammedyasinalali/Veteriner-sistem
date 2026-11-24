@@ -1,0 +1,50 @@
+@model VetKlinik.Web.Models.Admin.ClinicFormModel
+@using VetKlinik.Web.Infrastructure
+@{ ViewData["Title"] = "Klinik ve Çalışma Saatleri"; }
+
+<h1 class="h3 mb-3">Klinik ve Çalışma Saatleri</h1>
+<partial name="_AdminNav" />
+<form asp-action="Edit" method="post">
+    <div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+    <div class="row">
+        <div class="col-md-4 mb-3">
+            <label asp-for="Name" class="form-label"></label>
+            <input asp-for="Name" class="form-control" />
+            <span asp-validation-for="Name" class="text-danger small"></span>
+        </div>
+        <div class="col-md-5 mb-3">
+            <label asp-for="Address" class="form-label"></label>
+            <input asp-for="Address" class="form-control" />
+            <span asp-validation-for="Address" class="text-danger small"></span>
+        </div>
+        <div class="col-md-3 mb-3">
+            <label asp-for="Phone" class="form-label"></label>
+            <input asp-for="Phone" class="form-control" />
+            <span asp-validation-for="Phone" class="text-danger small"></span>
+        </div>
+    </div>
+
+    <h2 class="h5 mt-2">Haftalık çalışma saatleri</h2>
+    <div class="table-responsive">
+        <table class="table align-middle" style="max-width: 40rem">
+            <thead><tr><th>Gün</th><th>Kapalı</th><th>Açılış</th><th>Kapanış</th></tr></thead>
+            <tbody>
+            @for (var i = 0; i < Model.Days.Count; i++)
+            {
+                <tr>
+                    <td>
+                        <input type="hidden" asp-for="Days[i].Day" />
+                        @TurkishDays.Name(Model.Days[i].Day)
+                    </td>
+                    <td><input asp-for="Days[i].IsClosed" class="form-check-input" /></td>
+                    <td><input asp-for="Days[i].Opens" type="time" class="form-control form-control-sm" /></td>
+                    <td><input asp-for="Days[i].Closes" type="time" class="form-control form-control-sm" /></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+    <button type="submit" class="btn btn-primary">Kaydet</button>
+</form>
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

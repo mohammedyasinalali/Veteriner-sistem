@@ -1,8 +1,48 @@
-﻿@{
-    ViewData["Title"] = "Home Page";
-}
+@model HomeViewModel
+@using VetKlinik.Web.Infrastructure
+@{ ViewData["Title"] = "Ana Sayfa"; }
 
-<div class="text-center">
-    <h1 class="display-4">Welcome</h1>
-    <p>Learn about <a href="https://learn.microsoft.com/aspnet/core">building Web apps with ASP.NET Core</a>.</p>
+<div class="p-4 p-md-5 mb-4 bg-body-tertiary rounded-3">
+    <h1 class="display-6 fw-semibold">@Model.Clinic.Name</h1>
+    <p class="lead mb-1">Evcil dostlarınız için muayene, aşı ve bakım hizmetleri.</p>
+    <p class="text-muted mb-3">@Model.Clinic.Address · @Model.Clinic.Phone</p>
+    @if (User.Identity?.IsAuthenticated != true)
+    {
+        <a asp-controller="Account" asp-action="Register" class="btn btn-primary">Üye olun, randevu alın</a>
+    }
+</div>
+
+<div class="row g-4">
+    <div class="col-lg-8">
+        <h2 class="h4 mb-3">Hizmetlerimiz</h2>
+        <div class="row g-3">
+        @foreach (var s in Model.Services)
+        {
+            <div class="col-sm-6">
+                <div class="card h-100 shadow-sm">
+                    <div class="card-body">
+                        <h3 class="h6 fw-semibold mb-1">@s.Name</h3>
+                        <p class="text-muted small mb-2">@s.Description</p>
+                        <span class="badge text-bg-light">@s.DurationMinutes dk</span>
+                        <span class="fw-semibold float-end">@s.Price.ToString("N2") ₺</span>
+                    </div>
+                </div>
+            </div>
+        }
+        </div>
+    </div>
+    <div class="col-lg-4">
+        <h2 class="h4 mb-3">Çalışma saatleri</h2>
+        <ul class="list-group shadow-sm">
+        @foreach (var day in TurkishDays.Week)
+        {
+            var h = Model.Clinic.Hours.SingleOrDefault(x => x.Day == day);
+            <li class="list-group-item d-flex justify-content-between">
+                <span>@TurkishDays.Name(day)</span>
+                @if (h is null || h.IsClosed) { <span class="text-muted">Kapalı</span> }
+                else { <span>@h.Opens.ToString("HH:mm") – @h.Closes.ToString("HH:mm")</span> }
+            </li>
+        }
+        </ul>
+    </div>
 </div>

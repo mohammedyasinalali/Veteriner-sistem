@@ -1,0 +1,16 @@
+@model VetKlinik.Web.Domain.Service
+@{ ViewData["Title"] = "Hizmeti Sil"; }
+
+<h1 class="h3 mb-3">Hizmeti Sil</h1>
+<partial name="_AdminNav" />
+<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+<div class="card shadow-sm" style="max-width: 32rem">
+    <div class="card-body">
+        <p><strong>@Model.Name</strong> hizmetini silmek istediğinize emin misiniz?</p>
+        <p class="text-muted small mb-3">@Model.DurationMinutes dk · @Model.Price.ToString("N2") ₺</p>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+            <button type="submit" class="btn btn-danger">Sil</button>
+            <a asp-action="Index" class="btn btn-link">Vazgeç</a>
+        </form>
+    </div>
+</div>

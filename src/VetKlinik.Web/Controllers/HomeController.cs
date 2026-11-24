@@ -1,15 +1,14 @@
 using System.Diagnostics;
 using Microsoft.AspNetCore.Mvc;
 using VetKlinik.Web.Models;
+using VetKlinik.Web.Services;
 
 namespace VetKlinik.Web.Controllers;
 
-public class HomeController : Controller
+public class HomeController(ServiceCatalogService catalog, ClinicService clinics) : Controller
 {
-    public IActionResult Index()
-    {
-        return View();
-    }
+    public async Task<IActionResult> Index() =>
+        View(new HomeViewModel(await clinics.GetAsync(), await catalog.ListAsync(includeInactive: false)));
 
     public IActionResult Privacy()
     {

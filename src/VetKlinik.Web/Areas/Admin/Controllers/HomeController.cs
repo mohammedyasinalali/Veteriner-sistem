@@ -12,6 +12,7 @@ public class HomeController(AppDbContext db) : Controller
     public async Task<IActionResult> Index()
     {
         ViewData["UserCount"] = await db.Users.CountAsync();
+        ViewData["ServiceCount"] = await db.Services.CountAsync(s => s.IsActive);
         return View();
     }
 }
