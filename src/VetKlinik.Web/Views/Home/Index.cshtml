@@ -31,6 +31,25 @@
         }
         </div>
     </div>
+    @if (Model.Veterinarians.Count > 0)
+    {
+        <div class="col-lg-8 order-lg-3">
+            <h2 class="h4 mb-3">Hekimlerimiz</h2>
+            <div class="row g-3">
+            @foreach (var v in Model.Veterinarians)
+            {
+                <div class="col-sm-6">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-body">
+                            <h3 class="h6 fw-semibold mb-1">@v.Title @v.User.FullName</h3>
+                            <p class="text-muted small mb-0">@string.Join(", ", v.Specialties.Select(s => s.Name).Order())</p>
+                        </div>
+                    </div>
+                </div>
+            }
+            </div>
+        </div>
+    }
     <div class="col-lg-4">
         <h2 class="h4 mb-3">Çalışma saatleri</h2>
         <ul class="list-group shadow-sm">

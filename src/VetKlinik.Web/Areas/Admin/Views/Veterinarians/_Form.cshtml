@@ -1,0 +1,96 @@
+@model VetKlinik.Web.Models.Admin.VeterinarianFormModel
+@using VetKlinik.Web.Infrastructure
+@using VetKlinik.Web.Services
+@{
+    var isEdit = ViewData.ContainsKey("Id");
+    var specialties = (List<SpecialtyRow>)ViewData["Specialties"]!;
+    var services = (List<VetKlinik.Web.Domain.Service>)ViewData["Services"]!;
+}
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+<div class="row">
+    <div class="col-md-4 mb-3">
+        <label asp-for="FullName" class="form-label"></label>
+        <input asp-for="FullName" class="form-control" />
+        <span asp-validation-for="FullName" class="text-danger small"></span>
+    </div>
+    <div class="col-md-2 mb-3">
+        <label asp-for="Title" class="form-label"></label>
+        <input asp-for="Title" class="form-control" />
+        <span asp-validation-for="Title" class="text-danger small"></span>
+    </div>
+    <div class="col-md-3 mb-3">
+        <label asp-for="Email" class="form-label"></label>
+        @if (isEdit)
+        {
+            <input class="form-control" value="@Model.Email" readonly />
+            <div class="form-text">E-posta giriş adıdır, değiştirilemez.</div>
+        }
+        else
+        {
+            <input asp-for="Email" class="form-control" autocomplete="off" />
+            <span asp-validation-for="Email" class="text-danger small"></span>
+        }
+    </div>
+    @if (!isEdit)
+    {
+        <div class="col-md-3 mb-3">
+            <label asp-for="Password" class="form-label"></label>
+            <input asp-for="Password" class="form-control" autocomplete="new-password" data-val-required="Parola zorunludur." />
+            <div class="form-text">En az 6 karakter, en az bir rakam.</div>
+            <span asp-validation-for="Password" class="text-danger small"></span>
+        </div>
+    }
+</div>
+<div class="form-check mb-4">
+    <input asp-for="IsActive" class="form-check-input" />
+    <label asp-for="IsActive" class="form-check-label"></label>
+    <div class="form-text">Pasif hekime yeni randevu alınamaz.</div>
+</div>
+
+<div class="row g-4 mb-4">
+    <div class="col-md-6">
+        <h2 class="h6">Uzmanlık alanları</h2>
+        @foreach (var s in specialties)
+        {
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="SpecialtyIds" value="@s.Id" id="sp-@s.Id"
+                       checked="@Model.SpecialtyIds.Contains(s.Id)" />
+                <label class="form-check-label" for="sp-@s.Id">@s.Name</label>
+            </div>
+        }
+    </div>
+    <div class="col-md-6">
+        <h2 class="h6">Verebildiği hizmetler</h2>
+        @foreach (var s in services)
+        {
+            <div class="form-check">
+                <input class="form-check-input" type="checkbox" name="ServiceIds" value="@s.Id" id="sv-@s.Id"
+                       checked="@Model.ServiceIds.Contains(s.Id)" />
+                <label class="form-check-label" for="sv-@s.Id">
+                    @s.Name <span class="text-muted small">(@s.DurationMinutes dk)</span>
+                    @if (!s.IsActive) { <span class="badge text-bg-secondary">Pasif</span> }
+                </label>
+            </div>
+        }
+    </div>
+</div>
+
+<h2 class="h6">Haftalık müsaitlik</h2>
+<p class="form-text mt-0">Hayvan sahipleri yalnızca bu saatler içinde randevu alabilir. Saatler kliniğin çalışma saatleri içinde olmalıdır.</p>
+<div class="table-responsive">
+    <table class="table align-middle" style="max-width: 36rem">
+        <thead><tr><th>Gün</th><th>Çalışıyor</th><th>Başlangıç</th><th>Bitiş</th></tr></thead>
+        <tbody>
+        @for (var i = 0; i < Model.Days.Count; i++)
+        {
+            <tr>
+                <td><input type="hidden" asp-for="Days[i].Day" />@TurkishDays.Name(Model.Days[i].Day)</td>
+                <td><input asp-for="Days[i].Works" class="form-check-input" /></td>
+                <td><input asp-for="Days[i].Starts" type="time" class="form-control form-control-sm" /></td>
+                <td><input asp-for="Days[i].Ends" type="time" class="form-control form-control-sm" /></td>
+            </tr>
+        }
+        </tbody>
+    </table>
+</div>

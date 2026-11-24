@@ -5,10 +5,13 @@ using VetKlinik.Web.Services;
 
 namespace VetKlinik.Web.Controllers;
 
-public class HomeController(ServiceCatalogService catalog, ClinicService clinics) : Controller
+public class HomeController(ServiceCatalogService catalog, ClinicService clinics, VeterinarianService veterinarians) : Controller
 {
     public async Task<IActionResult> Index() =>
-        View(new HomeViewModel(await clinics.GetAsync(), await catalog.ListAsync(includeInactive: false)));
+        View(new HomeViewModel(
+            await clinics.GetAsync(),
+            await catalog.ListAsync(includeInactive: false),
+            [.. (await veterinarians.ListAsync()).Where(v => v.IsActive)]));
 
     public IActionResult Privacy()
     {

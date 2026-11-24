@@ -1,0 +1,38 @@
+@model List<VetKlinik.Web.Domain.Veterinarian>
+@{ ViewData["Title"] = "Hekimler"; }
+
+<h1 class="h3 mb-3">Hekimler</h1>
+<partial name="_AdminNav" />
+<div class="d-flex justify-content-end mb-3">
+    <a asp-action="Create" class="btn btn-primary">Yeni hekim</a>
+</div>
+<div class="table-responsive">
+    <table class="table table-hover align-middle">
+        <thead><tr><th>Hekim</th><th>Uzmanlık</th><th>Hizmetler</th><th>Durum</th><th></th></tr></thead>
+        <tbody>
+        @foreach (var v in Model)
+        {
+            <tr>
+                <td>
+                    <div class="fw-semibold">@v.Title @v.User.FullName</div>
+                    <div class="text-muted small">@v.User.Email</div>
+                </td>
+                <td class="small">@string.Join(", ", v.Specialties.Select(s => s.Name).Order())</td>
+                <td class="small">@string.Join(", ", v.Services.Select(s => s.Name).Order())</td>
+                <td>
+                    @if (v.IsActive) { <span class="badge text-bg-success">Aktif</span> }
+                    else { <span class="badge text-bg-secondary">Pasif</span> }
+                </td>
+                <td class="text-end text-nowrap">
+                    <a asp-action="Edit" asp-route-id="@v.Id" class="btn btn-sm btn-outline-primary">Düzenle</a>
+                    <a asp-action="Delete" asp-route-id="@v.Id" class="btn btn-sm btn-outline-danger">Sil</a>
+                </td>
+            </tr>
+        }
+        @if (Model.Count == 0)
+        {
+            <tr><td colspan="5" class="text-muted text-center py-4">Henüz hekim eklenmedi.</td></tr>
+        }
+        </tbody>
+    </table>
+</div>
