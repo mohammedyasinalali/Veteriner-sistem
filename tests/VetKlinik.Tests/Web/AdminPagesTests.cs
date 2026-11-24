@@ -79,4 +79,21 @@ public class AdminPagesTests(WebFixture web) : IClassFixture<WebFixture>
         Assert.Contains("geçerli bir sayı", html);
         Assert.DoesNotContain("must be a number", html);
     }
+
+    [Fact]
+    public async Task Dot_decimal_price_is_rejected_not_multiplied()
+    {
+        var client = await web.AdminClientAsync();
+
+        var response = await WebFixture.PostFormAsync(client, "/Admin/Services/Create", new()
+        {
+            ["Name"] = "Noktalı Fiyat",
+            ["DurationMinutes"] = "15",
+            ["Price"] = "499.99",
+        });
+
+        Assert.Equal(HttpStatusCode.OK, response.StatusCode);
+        Assert.Contains("virgül", await response.Content.ReadAsStringAsync());
+        Assert.DoesNotContain("Noktalı Fiyat", await client.GetStringAsync("/Admin/Services"));
+    }
 }

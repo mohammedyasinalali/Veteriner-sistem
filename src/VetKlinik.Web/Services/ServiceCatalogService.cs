@@ -58,8 +58,9 @@ public class ServiceCatalogService(AppDbContext db)
 
     private Task<bool> NameTakenAsync(string name, int? exceptId)
     {
-        var normalized = name.Trim().ToLower();
-        return db.Services.AnyAsync(s => s.Id != exceptId && s.Name.ToLower() == normalized);
+        // Türkçe harmanlama ile karşılaştırılır: "IŞIN" = "Işın", "İÇ" = "iç".
+        var trimmed = name.Trim();
+        return db.Services.AnyAsync(s => s.Id != exceptId && EF.Functions.Collate(s.Name, "Turkish_CI_AS") == trimmed);
     }
 
     private static string DuplicateName(string name) => $"'{name.Trim()}' adında bir hizmet zaten var.";

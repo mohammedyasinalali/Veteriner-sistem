@@ -21,7 +21,10 @@ builder.Services.AddScoped<ServiceCatalogService>();
 builder.Services.AddScoped<ClinicService>();
 
 builder.Services.AddControllersWithViews(options =>
-    TurkishModelBindingMessages.Apply(options.ModelBindingMessageProvider));
+{
+    TurkishModelBindingMessages.Apply(options.ModelBindingMessageProvider);
+    options.ModelBinderProviders.Insert(0, new TurkishDecimalModelBinderProvider());
+});
 
 // Türkçe karakterler (ı, ş, ğ...) HTML'de &#x131; gibi kodlanmadan yazılsın.
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));

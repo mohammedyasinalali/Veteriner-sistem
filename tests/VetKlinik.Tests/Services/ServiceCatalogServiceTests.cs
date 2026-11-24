@@ -116,4 +116,26 @@ public class ServiceCatalogServiceTests(SqlServerFixture fixture) : IClassFixtur
         Assert.DoesNotContain(publicList, s => s.Name == "Kısırlaştırma");
         Assert.Contains(adminList, s => s.Name == "Kısırlaştırma");
     }
+
+    [Fact]
+    public async Task Duplicate_check_handles_turkish_dotted_and_dotless_i()
+    {
+        await fixture.ResetAsync();
+        var previous = System.Globalization.CultureInfo.CurrentCulture;
+        System.Globalization.CultureInfo.CurrentCulture = new System.Globalization.CultureInfo("tr-TR");
+        try
+        {
+            await using var db = fixture.NewContext();
+            var catalog = new ServiceCatalogService(db);
+            Assert.True((await catalog.CreateAsync(Form("Işın Tedavisi"))).Succeeded);
+            Assert.True((await catalog.CreateAsync(Form("İç Hastalıkları"))).Succeeded);
+
+            Assert.False((await catalog.CreateAsync(Form("IŞIN TEDAVİSİ"))).Succeeded);
+            Assert.False((await catalog.CreateAsync(Form("iç hastalıkları"))).Succeeded);
+        }
+        finally
+        {
+            System.Globalization.CultureInfo.CurrentCulture = previous;
+        }
+    }
 }
