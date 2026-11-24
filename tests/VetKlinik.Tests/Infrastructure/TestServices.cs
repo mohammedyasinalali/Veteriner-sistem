@@ -3,6 +3,7 @@ using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using VetKlinik.Web.Auth;
 using VetKlinik.Web.Data;
+using VetKlinik.Web.Services;
 
 namespace VetKlinik.Tests.Infrastructure;
 
@@ -26,6 +27,7 @@ public static class TestServices
         services.Configure<SeedOptions>(configuration.GetSection("Seed"));
         services.AddDbContext<AppDbContext>(o => o.UseSqlServer(connectionString));
         services.AddVetKlinikIdentity();
+        services.AddVetKlinikServices();
         return services.BuildServiceProvider();
     }
 }

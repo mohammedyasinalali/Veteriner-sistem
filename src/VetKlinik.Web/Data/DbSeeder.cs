@@ -48,6 +48,21 @@ public static class DbSeeder
         var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
         await SeedClinicAsync(db);
         await SeedServicesAsync(db);
+        await SeedSpecialtiesAsync(db);
+    }
+
+    private static async Task SeedSpecialtiesAsync(AppDbContext db)
+    {
+        if (await db.Specialties.AnyAsync())
+            return;
+
+        db.Specialties.AddRange(
+            new Specialty { Name = "Küçük Hayvan" },
+            new Specialty { Name = "Egzotik Hayvan" },
+            new Specialty { Name = "Cerrahi" },
+            new Specialty { Name = "Dermatoloji" },
+            new Specialty { Name = "Dahiliye" });
+        await db.SaveChangesAsync();
     }
 
     private static async Task SeedClinicAsync(AppDbContext db)

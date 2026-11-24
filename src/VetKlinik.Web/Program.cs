@@ -16,9 +16,7 @@ builder.Services.AddDbContext<AppDbContext>(options =>
 builder.Services.AddVetKlinikIdentity();
 builder.Services.Configure<SeedOptions>(builder.Configuration.GetSection("Seed"));
 
-builder.Services.AddScoped<AccountService>();
-builder.Services.AddScoped<ServiceCatalogService>();
-builder.Services.AddScoped<ClinicService>();
+builder.Services.AddVetKlinikServices();
 
 builder.Services.AddControllersWithViews(options =>
 {
