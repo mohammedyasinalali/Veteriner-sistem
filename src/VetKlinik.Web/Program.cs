@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using VetKlinik.Web.Auth;
 using VetKlinik.Web.Data;
 
 var builder = WebApplication.CreateBuilder(args);
@@ -6,9 +7,19 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("Default")));
 
+builder.Services.AddVetKlinikIdentity();
+builder.Services.Configure<SeedOptions>(builder.Configuration.GetSection("Seed"));
+
 builder.Services.AddControllersWithViews();
 
 var app = builder.Build();
+
+// Açılışta bekleyen migration'lar uygulanır, roller ve Admin hesabı oluşturulur.
+using (var scope = app.Services.CreateScope())
+{
+    await scope.ServiceProvider.GetRequiredService<AppDbContext>().Database.MigrateAsync();
+}
+await DbSeeder.SeedAsync(app.Services);
 
 // Configure the HTTP request pipeline.
 if (!app.Environment.IsDevelopment())
@@ -21,6 +32,7 @@ if (!app.Environment.IsDevelopment())
 app.UseHttpsRedirection();
 app.UseRouting();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapStaticAssets();

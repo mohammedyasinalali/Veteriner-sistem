@@ -26,7 +26,16 @@ public sealed class SqlServerFixture : IAsyncLifetime
     /// <summary>Testler birbirini etkilemesin diye tabloları boşaltıp örnek veriyi yeniden yükler.</summary>
     public async Task<Seeded> ResetAsync()
     {
+        await ClearAsync();
         await using var db = NewContext();
+        return await TestData.SeedAsync(db);
+    }
+
+    /// <summary>Tüm tabloları boşaltır, örnek veri yüklemez.</summary>
+    public async Task ClearAsync()
+    {
+        await using var db = NewContext();
+        await db.AccessTokens.ExecuteDeleteAsync();
         await db.Appointments.ExecuteDeleteAsync();
         await db.VaccineRecords.ExecuteDeleteAsync();
         await db.Pets.ExecuteDeleteAsync();
@@ -36,6 +45,5 @@ public sealed class SqlServerFixture : IAsyncLifetime
         await db.Clinics.ExecuteDeleteAsync();
         await db.Users.ExecuteDeleteAsync();
         await db.Roles.ExecuteDeleteAsync();
-        return await TestData.SeedAsync(db);
     }
 }
