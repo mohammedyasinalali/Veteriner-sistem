@@ -19,7 +19,8 @@ public class AccountService(UserManager<ApplicationUser> userManager)
 
         var created = await userManager.CreateAsync(user, model.Password);
         if (!created.Succeeded)
-            return ServiceResult.Fail([.. created.Errors.Select(e => e.Description)]);
+            // Kullanıcı adı e-postanın kendisi olduğu için aynı hata iki kez gelebilir.
+            return ServiceResult.Fail([.. created.Errors.Select(e => e.Description).Distinct()]);
 
         var role = await userManager.AddToRoleAsync(user, Roles.Uye);
         return role.Succeeded

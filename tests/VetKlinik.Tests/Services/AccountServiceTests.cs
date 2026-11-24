@@ -50,8 +50,23 @@ public class AccountServiceTests(SqlServerFixture fixture) : IClassFixture<SqlSe
         var second = await service.RegisterAsync(NewMember("ayse@test.local"));
 
         Assert.False(second.Succeeded);
-        Assert.Contains(second.Errors, e => e.Contains("zaten"));
+        Assert.Single(second.Errors, e => e.Contains("zaten"));
         await using var db = fixture.NewContext();
         Assert.Equal(1, await db.Users.CountAsync(u => u.Email == "ayse@test.local"));
+    }
+
+    [Fact]
+    public async Task Register_with_turkish_letters_in_email_gives_turkish_error()
+    {
+        await fixture.ClearAsync();
+        await using var sp = TestServices.Build(fixture.ConnectionString);
+        await DbSeeder.SeedAsync(sp);
+        using var scope = sp.CreateScope();
+        var service = ActivatorUtilities.CreateInstance<AccountService>(scope.ServiceProvider);
+
+        var result = await service.RegisterAsync(NewMember("ayşe@test.local"));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains(result.Errors, e => e.Contains("yalnızca"));
     }
 }

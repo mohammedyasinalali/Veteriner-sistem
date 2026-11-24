@@ -9,7 +9,10 @@ public class TurkishIdentityErrorDescriber : IdentityErrorDescriber
         new() { Code = nameof(DuplicateEmail), Description = $"'{email}' adresi zaten kayıtlı." };
 
     public override IdentityError DuplicateUserName(string userName) =>
-        new() { Code = nameof(DuplicateUserName), Description = $"'{userName}' kullanıcı adı zaten kayıtlı." };
+        new() { Code = nameof(DuplicateUserName), Description = $"'{userName}' adresi zaten kayıtlı." };
+
+    public override IdentityError InvalidUserName(string? userName) =>
+        new() { Code = nameof(InvalidUserName), Description = $"'{userName}' geçersiz. E-posta adresi yalnızca İngilizce harf, rakam ve -._@+ içerebilir." };
 
     public override IdentityError InvalidEmail(string? email) =>
         new() { Code = nameof(InvalidEmail), Description = $"'{email}' geçerli bir e-posta adresi değil." };
