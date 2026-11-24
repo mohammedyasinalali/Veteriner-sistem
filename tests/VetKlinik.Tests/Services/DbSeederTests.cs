@@ -54,4 +54,20 @@ public class DbSeederTests(SqlServerFixture fixture) : IClassFixture<SqlServerFi
         Assert.Equal(1, await db.Users.CountAsync(u => u.Email == AdminEmail));
         Assert.Equal(3, await db.Roles.CountAsync());
     }
+
+    [Fact]
+    public async Task Seeds_clinic_and_services_once()
+    {
+        await fixture.ClearAsync();
+        await using var sp = TestServices.Build(fixture.ConnectionString);
+
+        await DbSeeder.SeedAsync(sp);
+        await DbSeeder.SeedAsync(sp);
+
+        await using var db = fixture.NewContext();
+        var clinic = await db.Clinics.Include(c => c.Hours).SingleAsync();
+        Assert.Equal(7, clinic.Hours.Count);
+        Assert.True(clinic.Hours.Single(h => h.Day == DayOfWeek.Sunday).IsClosed);
+        Assert.Equal(5, await db.Services.CountAsync());
+    }
 }
