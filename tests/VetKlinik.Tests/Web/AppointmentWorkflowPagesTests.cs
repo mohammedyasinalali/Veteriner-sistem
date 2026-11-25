@@ -10,7 +10,7 @@ public class AppointmentWorkflowPagesTests(WebFixture web) : IClassFixture<WebFi
     private sealed record Setup(HttpClient Owner, HttpClient Vet, int AppointmentId);
 
     /// <summary>Yeni hekim + yeni üye + hayvan + 3 gün sonrasına Pending randevu (doğrudan veritabanına).</summary>
-    private async Task<Setup> SetupAsync(string tag)
+    private async Task<Setup> SetupAsync(string tag, int daysFromToday = 3, AppointmentStatus status = AppointmentStatus.Pending)
     {
         var admin = await web.AdminClientAsync();
         var vetEmail = $"hekim{tag}@test.local";
@@ -31,12 +31,12 @@ public class AppointmentWorkflowPagesTests(WebFixture web) : IClassFixture<WebFi
         await using var db = web.Database.NewContext();
         var vetId = (await db.Veterinarians.Include(v => v.User).SingleAsync(v => v.User.Email == vetEmail)).Id;
         var service = await db.Services.FirstAsync();
-        var start = DateTime.Today.AddDays(3).AddHours(10);
+        var start = DateTime.Today.AddDays(daysFromToday).AddHours(10);
         var appointment = new Appointment
         {
             PetId = petId, VeterinarianId = vetId, ServiceId = service.Id, StartsAt = start,
             EndsAt = start.AddMinutes(service.DurationMinutes), DurationMinutes = service.DurationMinutes,
-            Price = service.Price, CreatedAt = DateTime.Today,
+            Price = service.Price, CreatedAt = DateTime.Today.AddDays(-10), Status = status,
         };
         db.Appointments.Add(appointment);
         await db.SaveChangesAsync();
@@ -111,5 +111,18 @@ public class AppointmentWorkflowPagesTests(WebFixture web) : IClassFixture<WebFi
         var response = await member.GetAsync("/Hekim");
 
         Assert.Contains("AccessDenied", response.Headers.Location!.ToString());
+    }
+
+    [Fact]
+    public async Task Vet_completes_past_approved_appointment_and_owner_sees_note()
+    {
+        var s = await SetupAsync("t1", daysFromToday: -1, status: AppointmentStatus.Approved);
+
+        var response = await WebFixture.PostFormAsync(s.Vet, $"/Appointments/Complete/{s.AppointmentId}",
+            new() { ["note"] = "Kulak enfeksiyonu, damla verildi." }, formPageUrl: "/Hekim");
+
+        Assert.Equal(HttpStatusCode.Redirect, response.StatusCode);
+        Assert.Equal(AppointmentStatus.Completed, await StatusAsync(s.AppointmentId));
+        Assert.Contains("Kulak enfeksiyonu", await s.Owner.GetStringAsync($"/Appointments/Details/{s.AppointmentId}"));
     }
 }

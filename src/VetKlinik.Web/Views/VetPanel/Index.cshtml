@@ -2,6 +2,16 @@
 @{ ViewData["Title"] = "Hekim Paneli"; }
 
 <h1 class="h3 mb-3">Hekim Paneli</h1>
+@if (Model.Expired.Count > 0)
+{
+    <div class="card border-danger shadow-sm mb-4">
+        <div class="card-header fw-semibold text-danger">Zamanında yanıtlanmamış talepler <span class="badge text-bg-danger">@Model.Expired.Count</span></div>
+        <div class="card-body">
+            <p class="small text-muted">Saati geçtiği için artık onaylanamaz; gerekçe yazarak reddedip kapatabilirsiniz.</p>
+            <partial name="_Table" model="Model.Expired" />
+        </div>
+    </div>
+}
 <div class="row g-4">
     <div class="col-lg-6">
         <div class="card shadow-sm h-100">

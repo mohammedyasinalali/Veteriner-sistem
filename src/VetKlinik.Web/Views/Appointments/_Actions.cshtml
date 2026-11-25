@@ -6,18 +6,22 @@
 @{
     var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
     var isVet = User.IsInRole(Roles.Admin) || Model.Veterinarian.UserId == userId;
-    var isOwner = User.IsInRole(Roles.Admin) || (User.IsInRole(Roles.Uye) && Model.Pet.OwnerId == userId);
+    // Sunucudaki kuralla aynı: AppointmentService.IsOwnerOf / IsVetOf
+    var isOwner = User.IsInRole(Roles.Admin) || (!User.IsInRole(Roles.Veteriner) && Model.Pet.OwnerId == userId);
     var returnUrl = Context.Request.Path + Context.Request.QueryString;
     var started = Model.StartsAt <= ClinicTime.Now(Time);
 }
 
 <div class="d-flex flex-wrap gap-2 align-items-start">
-    @if (isVet && Model.Status == AppointmentStatus.Pending && !started)
+    @if (isVet && Model.Status == AppointmentStatus.Pending)
     {
-        <form asp-controller="Appointments" asp-action="Approve" asp-route-id="@Model.Id" method="post">
-            <input type="hidden" name="returnUrl" value="@returnUrl" />
-            <button type="submit" class="btn btn-sm btn-success">Onayla</button>
-        </form>
+        @if (!started)
+        {
+            <form asp-controller="Appointments" asp-action="Approve" asp-route-id="@Model.Id" method="post">
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <button type="submit" class="btn btn-sm btn-success">Onayla</button>
+            </form>
+        }
         <details>
             <summary class="btn btn-sm btn-outline-danger">Reddet</summary>
             <form asp-controller="Appointments" asp-action="Reject" asp-route-id="@Model.Id" method="post" class="mt-2" style="min-width: 16rem">

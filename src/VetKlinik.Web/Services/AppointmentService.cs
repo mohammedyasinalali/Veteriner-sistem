@@ -17,7 +17,8 @@ public record VetDashboard(
     IReadOnlyList<Appointment> Pending,
     IReadOnlyList<Appointment> Today,
     IReadOnlyList<Appointment> Upcoming,
-    IReadOnlyList<Appointment> AwaitingCompletion);
+    IReadOnlyList<Appointment> AwaitingCompletion,
+    IReadOnlyList<Appointment> Expired);
 
 /// <summary>
 /// Randevu alma kuralları. Bir saatin uygun olup olmadığına tek bir fonksiyon (<see cref="SlotProblem"/>) karar verir;
@@ -200,7 +201,7 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
         var todayStart = now.Date;
         var tomorrow = todayStart.AddDays(1);
         var list = await Visible(user)
-            .Where(a => a.Veterinarian.UserId == user.Id && a.EndsAt >= todayStart.AddDays(-30)
+            .Where(a => a.Veterinarian.UserId == user.Id
                         && (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Approved))
             .OrderBy(a => a.StartsAt)
             .ToListAsync();
@@ -209,7 +210,9 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
             Pending: [.. list.Where(a => a.Status == AppointmentStatus.Pending && a.StartsAt > now)],
             Today: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt >= todayStart && a.StartsAt < tomorrow)],
             Upcoming: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt >= tomorrow)],
-            AwaitingCompletion: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt <= now)]);
+            AwaitingCompletion: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt <= now)],
+            // Zamanında onaylanmamış talepler: artık onaylanamaz ama hekim reddederek kapatabilir.
+            Expired: [.. list.Where(a => a.Status == AppointmentStatus.Pending && a.StartsAt <= now)]);
     }
 
     // ---------------- Durum geçişleri ----------------

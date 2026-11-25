@@ -269,6 +269,43 @@ public class AppointmentWorkflowTests(SqlServerFixture fixture) : IClassFixture<
         Assert.Equal([waiting, today], dashboard.Today.Select(a => a.Id));
         Assert.Equal([upcoming], dashboard.Upcoming.Select(a => a.Id));
         Assert.Equal([waiting], dashboard.AwaitingCompletion.Select(a => a.Id));
+        Assert.Empty(dashboard.Expired);
         Assert.Empty((await Service(db, Clock(At(10))).GetVetDashboardAsync(Vet(seed.VetB))).Pending);
+    }
+
+    [Fact]
+    public async Task Expired_pending_appears_in_panel_and_can_still_be_rejected()
+    {
+        var seed = await fixture.ResetAsync();
+        var old = await AddAsync(seed, At(9));
+        var veryOld = await AddAsync(seed, At(9).AddDays(-45), AppointmentStatus.Approved);
+        await using var db = fixture.NewContext();
+        var service = Service(db, Clock(At(10)));
+
+        var dashboard = await service.GetVetDashboardAsync(Vet(seed.VetA));
+        var reject = await service.RejectAsync(Vet(seed.VetA), old, "Zamanında onaylanamadı.");
+
+        Assert.Equal([old], dashboard.Expired.Select(a => a.Id));
+        Assert.Contains(veryOld, dashboard.AwaitingCompletion.Select(a => a.Id));
+        Assert.True(reject.Succeeded, string.Join(" ", reject.Errors));
+    }
+
+    [Fact]
+    public async Task Row_version_blocks_stale_update()
+    {
+        var seed = await fixture.ResetAsync();
+        var id = await AddAsync(seed, At(10));
+        await using var first = fixture.NewContext();
+        await using var second = fixture.NewContext();
+        var a = await first.Appointments.SingleAsync(x => x.Id == id);
+        var b = await second.Appointments.SingleAsync(x => x.Id == id); // ikisi de Pending okudu
+
+        a.Status = AppointmentStatus.Approved;
+        await first.SaveChangesAsync();
+        b.Status = AppointmentStatus.Rejected;
+        b.RejectionReason = "Geç kalan işlem";
+
+        await Assert.ThrowsAsync<DbUpdateConcurrencyException>(() => second.SaveChangesAsync());
+        Assert.Equal(AppointmentStatus.Approved, (await ReloadAsync(id)).Status);
     }
 }
