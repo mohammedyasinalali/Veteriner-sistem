@@ -58,7 +58,7 @@ public class VaccineService(AppDbContext db, PetService pets, TimeProvider time)
         if (pet is null)
             return ServiceResult<VaccineRecord>.Fail("Hayvan bulunamadı.");
 
-        var errors = Validate(form);
+        var errors = Validate(form, pet);
         if (errors.Length > 0)
             return ServiceResult<VaccineRecord>.Fail(errors);
 
@@ -94,7 +94,7 @@ public class VaccineService(AppDbContext db, PetService pets, TimeProvider time)
         if (record is null)
             return ServiceResult.Fail("Aşı kaydı bulunamadı.");
 
-        var errors = Validate(form);
+        var errors = Validate(form, record.Pet);
         if (errors.Length > 0)
             return ServiceResult.Fail(errors);
 
@@ -114,11 +114,13 @@ public class VaccineService(AppDbContext db, PetService pets, TimeProvider time)
         return ServiceResult.Ok();
     }
 
-    private string[] Validate(VaccineFormModel form)
+    private string[] Validate(VaccineFormModel form, Pet pet)
     {
         var errors = new List<string>();
         if (form.AdministeredOn > ClinicTime.Today(time))
             errors.Add("Uygulama tarihi gelecekte olamaz.");
+        if (form.AdministeredOn < pet.BirthDate)
+            errors.Add($"Uygulama tarihi hayvanın doğum tarihinden ({pet.BirthDate:dd.MM.yyyy}) önce olamaz.");
         if (form.NextDueOn is { } next && next <= form.AdministeredOn)
             errors.Add("Sonraki doz tarihi uygulama tarihinden sonra olmalıdır.");
         return [.. errors];

@@ -195,4 +195,32 @@ public class VaccineServiceTests(SqlServerFixture fixture) : IClassFixture<SqlSe
         await using var fresh = fixture.NewContext();
         Assert.False(await fresh.VaccineRecords.AnyAsync());
     }
+
+    [Fact]
+    public async Task Administered_before_birth_is_rejected()
+    {
+        var seed = await fixture.ResetAsync(); // PetA doğum: 2024-05-01
+        await using var db = fixture.NewContext();
+
+        var result = await Service(db).AddAsync(Member(seed.OwnerA), seed.PetA.Id, Form(on: "2024-04-30", next: null));
+
+        Assert.False(result.Succeeded);
+        Assert.Contains("doğum tarihinden", string.Join(" ", result.Errors));
+    }
+
+    [Fact]
+    public async Task Schedule_groups_names_with_turkish_casing()
+    {
+        var seed = await fixture.ResetAsync();
+        await using var db = fixture.NewContext();
+        var service = Service(db);
+        var owner = Member(seed.OwnerA);
+        await service.AddAsync(owner, seed.PetA.Id, Form("İç Parazit", "2026-10-01", "2026-11-01"));
+        await service.AddAsync(owner, seed.PetA.Id, Form("iç parazit", "2026-11-01", "2026-12-15"));
+
+        var schedule = (await service.GetScheduleAsync(owner, seed.PetA.Id))!;
+
+        var only = Assert.Single(schedule.Upcoming);
+        Assert.Equal(new DateOnly(2026, 12, 15), only.DueOn);
+    }
 }

@@ -52,7 +52,7 @@
                         <td>@r.VaccineName</td>
                         <td>@r.AdministeredOn.ToString("dd.MM.yyyy")</td>
                         <td>@(r.NextDueOn?.ToString("dd.MM.yyyy") ?? "—")</td>
-                        <td class="small text-muted">@(r.Veterinarian is null ? "Sahibi" : $"{r.Veterinarian.Title} {r.Veterinarian.User.FullName}")</td>
+                        <td class="small text-muted">@(r.Veterinarian is null ? "—" : $"{r.Veterinarian.Title} {r.Veterinarian.User.FullName}")</td>
                         <td class="text-end text-nowrap">
                             @if (VaccineService.CanEdit(me, r))
                             {

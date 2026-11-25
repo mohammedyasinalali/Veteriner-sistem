@@ -1,7 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VetKlinik.Web.Auth;
-using VetKlinik.Web.Domain;
+using VetKlinik.Web.Infrastructure;
 using VetKlinik.Web.Models.Pets;
 using VetKlinik.Web.Services;
 
@@ -9,7 +9,7 @@ namespace VetKlinik.Web.Controllers;
 
 /// <summary>Aşı kaydı ekranları. Yetkisiz hayvan/kayıt için 404 (karar VaccineService ve PetService'te).</summary>
 [Authorize]
-public class VaccinesController(VaccineService vaccines, PetService pets) : Controller
+public class VaccinesController(VaccineService vaccines, PetService pets, TimeProvider time) : Controller
 {
     private CurrentUser Me => CurrentUser.From(User);
 
@@ -21,7 +21,7 @@ public class VaccinesController(VaccineService vaccines, PetService pets) : Cont
             return NotFound();
 
         ViewData["Pet"] = pet;
-        return View(new VaccineFormModel { AdministeredOn = DateOnly.FromDateTime(DateTime.Today) });
+        return View(new VaccineFormModel { AdministeredOn = ClinicTime.Today(time) });
     }
 
     [HttpPost, ValidateAntiForgeryToken]

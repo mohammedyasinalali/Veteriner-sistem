@@ -53,6 +53,9 @@ public class VaccinePagesTests(WebFixture web) : IClassFixture<WebFixture>
         var add = await WebFixture.PostFormAsync(intruder, $"/Vaccines/Create?petId={petId}",
             new() { ["VaccineName"] = "Sahte", ["AdministeredOn"] = "2026-11-01" }, formPageUrl: "/Pets/Create");
         var delete = await WebFixture.PostFormAsync(intruder, $"/Vaccines/Delete/{recordId}", [], formPageUrl: "/Pets/Create");
+        var edit = await WebFixture.PostFormAsync(intruder, $"/Vaccines/Edit/{recordId}",
+            new() { ["VaccineName"] = "Değişti", ["AdministeredOn"] = "2026-11-01" }, formPageUrl: "/Pets/Create");
+        Assert.Equal(HttpStatusCode.NotFound, edit.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, add.StatusCode);
         Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);
 

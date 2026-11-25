@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using VetKlinik.Web.Auth;
 using VetKlinik.Web.Domain;
+using VetKlinik.Web.Infrastructure;
 using VetKlinik.Web.Models.Pets;
 using VetKlinik.Web.Services;
 
@@ -12,7 +13,7 @@ namespace VetKlinik.Web.Controllers;
 /// veya düzenleyemediği hayvan için 404 döner (kaydın varlığı da belli olmaz).
 /// </summary>
 [Authorize]
-public class PetsController(PetService pets, VaccineService vaccines, PhotoStorage photos) : Controller
+public class PetsController(PetService pets, VaccineService vaccines, PhotoStorage photos, TimeProvider time) : Controller
 {
     private const long MaxRequestBytes = 3 * 1024 * 1024;
 
@@ -44,7 +45,7 @@ public class PetsController(PetService pets, VaccineService vaccines, PhotoStora
     }
 
     [HttpGet, Authorize(Roles = Roles.Uye)]
-    public IActionResult Create() => View(new PetFormModel { BirthDate = DateOnly.FromDateTime(DateTime.Today.AddYears(-1)) });
+    public IActionResult Create() => View(new PetFormModel { BirthDate = ClinicTime.Today(time).AddYears(-1) });
 
     [HttpPost, Authorize(Roles = Roles.Uye), ValidateAntiForgeryToken, RequestSizeLimit(MaxRequestBytes)]
     public async Task<IActionResult> Create(PetFormModel form)

@@ -1,3 +1,4 @@
+@inject TimeProvider Time
 @using Microsoft.AspNetCore.Mvc.Rendering
 @using VetKlinik.Web.Domain
 @using VetKlinik.Web.Infrastructure
@@ -28,7 +29,7 @@
     </div>
     <div class="col-sm-4 mb-3">
         <label asp-for="BirthDate" class="form-label"></label>
-        <input asp-for="BirthDate" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" data-msg-max="Doğum tarihi gelecekte olamaz." />
+        <input asp-for="BirthDate" class="form-control" max="@VetKlinik.Web.Infrastructure.ClinicTime.Today(Time).ToString("yyyy-MM-dd")" data-msg-max="Doğum tarihi gelecekte olamaz." />
         <span asp-validation-for="BirthDate" class="text-danger small"></span>
     </div>
     <div class="col-sm-4 mb-3">
