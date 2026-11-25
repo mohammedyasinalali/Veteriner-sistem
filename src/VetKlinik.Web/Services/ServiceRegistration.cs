@@ -13,6 +13,7 @@ public static class ServiceRegistration
         services.AddScoped<VeterinarianService>();
         services.AddScoped<SpecialtyService>();
         services.AddScoped<PetService>();
+        services.AddScoped<VaccineService>();
         services.TryAddSingleton(TimeProvider.System);
         // Fotoğraflar wwwroot/uploads altına; ayarda "Uploads:Path" verilirse oraya kaydedilir.
         services.AddSingleton(sp => new PhotoStorage(

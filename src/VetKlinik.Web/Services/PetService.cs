@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using VetKlinik.Web.Auth;
 using VetKlinik.Web.Data;
 using VetKlinik.Web.Domain;
+using VetKlinik.Web.Infrastructure;
 using VetKlinik.Web.Models.Pets;
 
 namespace VetKlinik.Web.Services;
@@ -125,7 +126,7 @@ public class PetService(AppDbContext db, PhotoStorage photos, TimeProvider time)
     private async Task<string[]> ValidateAsync(string ownerId, PetFormModel form, int? exceptId)
     {
         var errors = new List<string>();
-        var today = DateOnly.FromDateTime(time.GetLocalNow().DateTime);
+        var today = ClinicTime.Today(time);
         if (form.BirthDate > today)
             errors.Add("Doğum tarihi gelecekte olamaz.");
 
