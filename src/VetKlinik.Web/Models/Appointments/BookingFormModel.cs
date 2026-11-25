@@ -18,5 +18,5 @@ public class BookingFormModel
     public int VeterinarianId { get; set; }
 
     [Required(ErrorMessage = "Saat seçiniz.")]
-    public DateTime StartsAt { get; set; }
+    public DateTime? StartsAt { get; set; }
 }

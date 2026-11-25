@@ -33,6 +33,11 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
 
     public async Task<List<VetSlots>> GetAvailableSlotsAsync(int serviceId, DateOnly date, int? veterinarianId = null)
     {
+        // Geçmiş veya 60 günden uzak gün: hesaplamaya hiç girilmez (DateOnly.MaxValue gibi uç değerler de güvenli).
+        var today = ClinicTime.Today(time);
+        if (date < today || date > today.AddDays(MaxDaysAhead))
+            return [];
+
         var service = await db.Services.SingleOrDefaultAsync(s => s.Id == serviceId && s.IsActive);
         if (service is null)
             return [];
@@ -65,7 +70,7 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
 
             var vetBusy = busy.Where(b => b.VeterinarianId == vet.Id).Select(b => new Busy(b.StartsAt, b.EndsAt)).ToList();
             var slots = new List<DateTime>();
-            for (var start = date.ToDateTime(window.Start);
+            for (var start = date.ToDateTime(RoundUpToSlot(window.Start));
                  start.AddMinutes(service.DurationMinutes) <= date.ToDateTime(window.End);
                  start = start.AddMinutes(SlotMinutes))
             {
@@ -102,10 +107,21 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
         if (vet.Services.All(s => s.Id != service.Id))
             return ServiceResult<Appointment>.Fail($"{vet.Title} {vet.User.FullName} bu hizmeti vermiyor.");
 
-        var start = DateTime.SpecifyKind(form.StartsAt, DateTimeKind.Unspecified);
+        if (form.StartsAt is null)
+            return ServiceResult<Appointment>.Fail("Saat seçiniz.");
+
+        // API/MCP'den UTC veya saat dilimli zaman gelebilir: önce klinik saatine çevrilir.
+        var start = DateTime.SpecifyKind(ClinicTime.ToClinic(form.StartsAt.Value), DateTimeKind.Unspecified);
+        var today = ClinicTime.Today(time);
+        if (DateOnly.FromDateTime(start) > today.AddDays(MaxDaysAhead))
+            return ServiceResult<Appointment>.Fail($"En fazla {MaxDaysAhead} gün sonrasına randevu alınabilir.");
+        if (DateOnly.FromDateTime(start) < today)
+            return ServiceResult<Appointment>.Fail("Seçilen saat geçmişte kaldı; ileri bir saat seçiniz.");
+
         var end = start.AddMinutes(service.DurationMinutes);
         var window = WindowFor(vet, await ClinicHoursAsync(start.DayOfWeek), start.DayOfWeek);
 
+        // (Hekim/hizmet bilgisi yukarıda transaction dışında okunur; admin tam bu anda pasifleştirirse randevu yine alınabilir — kabul edilen küçük risk.)
         // Serializable: çakışma kontrolü ile ekleme arasında başka bir işlem aynı aralığa randevu ekleyemez.
         // Aynı anda gelen iki istekten biri SQL Server tarafından durdurulur (deadlock kurbanı) ve aşağıda yakalanır.
         await using var transaction = await db.Database.BeginTransactionAsync(IsolationLevel.Serializable);
@@ -175,7 +191,7 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
     private static string? SlotProblem(DateTime start, int durationMinutes, Window? window, IEnumerable<Busy> busy, DateTime now)
     {
         var end = start.AddMinutes(durationMinutes);
-        if (start.Second != 0 || start.Millisecond != 0 || start.Minute % SlotMinutes != 0)
+        if (start.Ticks % TimeSpan.FromMinutes(SlotMinutes).Ticks != 0)
             return "Randevu saatleri 15 dakikalık aralıklarla başlar (ör. 10:00, 10:15).";
         if (start <= now)
             return "Seçilen saat geçmişte kaldı; ileri bir saat seçiniz.";
@@ -188,6 +204,15 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
         if (busy.Any(b => start < b.End && b.Start < end))
             return "Hekimin bu saati dolu. Lütfen başka bir saat seçin.";
         return null;
+    }
+
+    /// <summary>09:10 gibi çeyreğe denk gelmeyen başlangıç 09:15'e yuvarlanır (liste ve kayıt aynı saatleri kabul etsin).</summary>
+    private static TimeOnly RoundUpToSlot(TimeOnly time)
+    {
+        var remainder = time.Ticks % TimeSpan.FromMinutes(SlotMinutes).Ticks;
+        return remainder == 0 || time.Ticks - remainder + TimeSpan.FromMinutes(SlotMinutes).Ticks >= TimeSpan.TicksPerDay
+            ? time
+            : new TimeOnly(time.Ticks - remainder + TimeSpan.FromMinutes(SlotMinutes).Ticks);
     }
 
     private static Window? WindowFor(Veterinarian vet, ClinicHours? clinicHours, DayOfWeek day)

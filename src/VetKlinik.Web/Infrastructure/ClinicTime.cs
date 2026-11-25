@@ -23,4 +23,15 @@ public static class ClinicTime
     public static DateTime Now(TimeProvider time) => TimeZoneInfo.ConvertTime(time.GetUtcNow(), Istanbul).DateTime;
 
     public static DateOnly Today(TimeProvider time) => DateOnly.FromDateTime(Now(time));
+
+    /// <summary>
+    /// Dışarıdan gelen zamanı klinik saatine çevirir. UTC ("...Z") ve yerel saat (sunucu) dönüştürülür;
+    /// türü belirtilmemiş zaman zaten klinik saati kabul edilir.
+    /// </summary>
+    public static DateTime ToClinic(DateTime value) => value.Kind switch
+    {
+        DateTimeKind.Utc => TimeZoneInfo.ConvertTimeFromUtc(value, Istanbul),
+        DateTimeKind.Local => TimeZoneInfo.ConvertTimeFromUtc(value.ToUniversalTime(), Istanbul),
+        _ => value,
+    };
 }

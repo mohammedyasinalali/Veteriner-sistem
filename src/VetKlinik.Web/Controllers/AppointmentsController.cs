@@ -43,7 +43,7 @@ public class AppointmentsController(
         if (await pets.FindEditableAsync(Me, form.PetId) is null)
             return NotFound();
 
-        var back = new { petId = form.PetId, serviceId = form.ServiceId, date = DateOnly.FromDateTime(form.StartsAt).ToString("yyyy-MM-dd") };
+        var back = new { petId = form.PetId, serviceId = form.ServiceId, date = form.StartsAt?.ToString("yyyy-MM-dd") };
         if (!ModelState.IsValid)
         {
             TempData["Error"] = string.Join(" ", ModelState.Values.SelectMany(v => v.Errors).Select(e => e.ErrorMessage));

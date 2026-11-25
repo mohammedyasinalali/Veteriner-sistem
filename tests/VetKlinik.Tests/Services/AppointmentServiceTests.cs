@@ -278,4 +278,80 @@ public class AppointmentServiceTests(SqlServerFixture fixture) : IClassFixture<S
         Assert.NotNull(list[0].Service);
         Assert.NotNull(list[0].Veterinarian.User);
     }
+
+    // ---------- İnceleme sonrası eklenen sınır durumları ----------
+
+    [Fact]
+    public async Task Unaligned_availability_start_is_rounded_up_to_quarter_hour()
+    {
+        var seed = await fixture.ResetAsync();
+        await using (var setup = fixture.NewContext())
+            await setup.Set<VetAvailability>()
+                .Where(a => a.VeterinarianId == seed.VetA.Id && a.Day == DayOfWeek.Tuesday)
+                .ExecuteUpdateAsync(s => s.SetProperty(a => a.Starts, new TimeOnly(9, 10)));
+        await using var db = fixture.NewContext();
+        var service = Service(db);
+
+        var slots = (await service.GetAvailableSlotsAsync(seed.Examination.Id, Tuesday, seed.VetA.Id)).Single().Slots;
+
+        Assert.Equal(At(Tuesday, 9, 15), slots[0]);
+        Assert.True((await service.BookAsync(Member(seed.OwnerA), Booking(seed, slots[0]))).Succeeded);
+    }
+
+    [Fact]
+    public async Task Out_of_range_dates_fail_without_exception()
+    {
+        var seed = await fixture.ResetAsync();
+        await using var db = fixture.NewContext();
+        var service = Service(db);
+
+        Assert.Empty(await service.GetAvailableSlotsAsync(seed.Examination.Id, DateOnly.MaxValue));
+        Assert.Empty(await service.GetAvailableSlotsAsync(seed.Examination.Id, DateOnly.MinValue));
+        var max = await service.BookAsync(Member(seed.OwnerA), Booking(seed, new DateTime(9999, 12, 31, 23, 45, 0)));
+        var min = await service.BookAsync(Member(seed.OwnerA), new BookingFormModel { PetId = seed.PetA.Id, ServiceId = seed.Examination.Id, VeterinarianId = seed.VetA.Id });
+
+        Assert.Contains("60 gün", string.Join(" ", max.Errors));
+        Assert.False(min.Succeeded);
+    }
+
+    [Fact]
+    public async Task Utc_start_is_converted_to_clinic_time()
+    {
+        var seed = await fixture.ResetAsync();
+        await using var db = fixture.NewContext();
+
+        // API/MCP istemcisi "2026-12-08T07:00:00Z" gönderirse randevu Istanbul saatiyle 10:00'dadır.
+        var result = await Service(db).BookAsync(Member(seed.OwnerA), Booking(seed, new DateTime(2026, 12, 8, 7, 0, 0, DateTimeKind.Utc)));
+
+        Assert.True(result.Succeeded, string.Join(" ", result.Errors));
+        await using var fresh = fixture.NewContext();
+        Assert.Equal(At(Tuesday, 10), (await fresh.Appointments.SingleAsync()).StartsAt);
+    }
+
+    [Fact]
+    public async Task Sub_second_start_is_rejected()
+    {
+        var seed = await fixture.ResetAsync();
+        await using var db = fixture.NewContext();
+
+        var result = await Service(db).BookAsync(Member(seed.OwnerA), Booking(seed, At(Tuesday, 10).AddTicks(1)));
+
+        Assert.Contains("15 dakika", string.Join(" ", result.Errors));
+    }
+
+    [Fact]
+    public async Task Concurrent_bookings_of_same_pet_with_two_vets_only_one_succeeds()
+    {
+        var seed = await fixture.ResetAsync();
+
+        async Task<ServiceResult> BookWith(Veterinarian vet)
+        {
+            await using var db = fixture.NewContext();
+            return await Service(db).BookAsync(Member(seed.OwnerA), Booking(seed, At(Tuesday, 11), vet: vet));
+        }
+
+        var results = await Task.WhenAll(BookWith(seed.VetA), BookWith(seed.VetB), BookWith(seed.VetA), BookWith(seed.VetB));
+
+        Assert.Equal(1, results.Count(r => r.Succeeded));
+    }
 }
