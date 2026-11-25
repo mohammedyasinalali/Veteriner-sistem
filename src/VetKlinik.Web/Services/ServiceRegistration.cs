@@ -1,3 +1,5 @@
+using Microsoft.Extensions.DependencyInjection.Extensions;
+
 namespace VetKlinik.Web.Services;
 
 public static class ServiceRegistration
@@ -10,6 +12,12 @@ public static class ServiceRegistration
         services.AddScoped<ClinicService>();
         services.AddScoped<VeterinarianService>();
         services.AddScoped<SpecialtyService>();
+        services.AddScoped<PetService>();
+        services.TryAddSingleton(TimeProvider.System);
+        // Fotoğraflar wwwroot/uploads altına; ayarda "Uploads:Path" verilirse oraya kaydedilir.
+        services.AddSingleton(sp => new PhotoStorage(
+            sp.GetRequiredService<IConfiguration>()["Uploads:Path"]
+            ?? Path.Combine(sp.GetRequiredService<IWebHostEnvironment>().WebRootPath, "uploads")));
         return services;
     }
 }
