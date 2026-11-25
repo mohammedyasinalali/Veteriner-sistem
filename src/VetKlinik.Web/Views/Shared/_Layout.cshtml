@@ -32,6 +32,12 @@
                                 <a class="nav-link text-dark" asp-area="" asp-controller="Appointments" asp-action="Index">@(User.IsInRole(Roles.Admin) ? "Randevular" : "Randevularım")</a>
                             </li>
                         }
+                        @if (User.IsInRole(Roles.Veteriner))
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="VetPanel" asp-action="Index">Hekim Paneli</a>
+                            </li>
+                        }
                         @if (User.IsInRole(Roles.Admin))
                         {
                             <li class="nav-item">

@@ -1,0 +1,31 @@
+@model VetKlinik.Web.Services.VetDashboard
+@{ ViewData["Title"] = "Hekim Paneli"; }
+
+<h1 class="h3 mb-3">Hekim Paneli</h1>
+<div class="row g-4">
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header fw-semibold">Onay bekleyenler <span class="badge text-bg-warning">@Model.Pending.Count</span></div>
+            <div class="card-body"><partial name="_Table" model="Model.Pending" /></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header fw-semibold">Bugün <span class="badge text-bg-success">@Model.Today.Count</span></div>
+            <div class="card-body"><partial name="_Table" model="Model.Today" /></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header fw-semibold">Tamamlanmayı bekleyenler <span class="badge text-bg-primary">@Model.AwaitingCompletion.Count</span></div>
+            <div class="card-body"><partial name="_Table" model="Model.AwaitingCompletion" /></div>
+        </div>
+    </div>
+    <div class="col-lg-6">
+        <div class="card shadow-sm h-100">
+            <div class="card-header fw-semibold">Yaklaşan onaylı randevular</div>
+            <div class="card-body"><partial name="_Table" model="Model.Upcoming" /></div>
+        </div>
+    </div>
+</div>
+<a asp-controller="Appointments" asp-action="Index" class="btn btn-link mt-3 ps-0">Tüm randevularım →</a>

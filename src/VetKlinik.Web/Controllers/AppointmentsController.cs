@@ -16,6 +16,44 @@ public class AppointmentsController(
 
     public async Task<IActionResult> Index() => View(await appointments.ListAsync(Me));
 
+    public async Task<IActionResult> Details(int id)
+    {
+        var appointment = await appointments.FindAsync(Me, id);
+        return appointment is null ? NotFound() : View(appointment);
+    }
+
+    // Durum değişiklikleri: yetki ve kurallar AppointmentService'te. Yetkisizse 404,
+    // kural ihlalinde Türkçe mesajla geldiği sayfaya döner.
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Approve(int id, string? returnUrl) =>
+        Done(await appointments.ApproveAsync(Me, id), "Randevu onaylandı.", id, returnUrl);
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Reject(int id, string? reason, string? returnUrl) =>
+        Done(await appointments.RejectAsync(Me, id, reason), "Randevu reddedildi.", id, returnUrl);
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Complete(int id, string? note, string? returnUrl) =>
+        Done(await appointments.CompleteAsync(Me, id, note), "Randevu tamamlandı, muayene notu kaydedildi.", id, returnUrl);
+
+    [HttpPost, ValidateAntiForgeryToken]
+    public async Task<IActionResult> Cancel(int id, string? returnUrl) =>
+        Done(await appointments.CancelAsync(Me, id), "Randevu iptal edildi.", id, returnUrl);
+
+    private IActionResult Done(ServiceResult result, string success, int id, string? returnUrl)
+    {
+        if (result.IsNotFound)
+            return NotFound();
+
+        if (result.Succeeded)
+            TempData["Success"] = success;
+        else
+            TempData["Error"] = string.Join(" ", result.Errors);
+
+        return Url.IsLocalUrl(returnUrl) ? LocalRedirect(returnUrl) : RedirectToAction(nameof(Details), new { id });
+    }
+
     /// <summary>Hayvan + hizmet + gün seçilince hekimlerin uygun saatlerini listeler.</summary>
     [HttpGet, Authorize(Roles = Roles.Uye)]
     public async Task<IActionResult> Book(int? petId, int? serviceId, DateOnly? date)

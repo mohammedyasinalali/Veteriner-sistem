@@ -1,0 +1,35 @@
+@using VetKlinik.Web.Infrastructure
+@model VetKlinik.Web.Domain.Appointment
+@{ ViewData["Title"] = "Randevu"; }
+
+<h1 class="h3 mb-3">Randevu</h1>
+<div class="card shadow-sm" style="max-width: 44rem">
+    <div class="card-body">
+        <dl class="row mb-3">
+            <dt class="col-sm-4">Durum</dt>
+            <dd class="col-sm-8"><span class="badge @AppointmentStatusNames.Badge(Model.Status)">@AppointmentStatusNames.Name(Model.Status)</span></dd>
+            <dt class="col-sm-4">Tarih</dt>
+            <dd class="col-sm-8">@Model.StartsAt.ToString("dd MMMM yyyy dddd, HH:mm")–@Model.EndsAt.ToString("HH:mm")</dd>
+            <dt class="col-sm-4">Hayvan</dt>
+            <dd class="col-sm-8"><a asp-controller="Pets" asp-action="Details" asp-route-id="@Model.PetId">@Model.Pet.Name</a> · sahibi @Model.Pet.Owner.FullName</dd>
+            <dt class="col-sm-4">Hizmet</dt>
+            <dd class="col-sm-8">@Model.Service.Name (@Model.DurationMinutes dk)</dd>
+            <dt class="col-sm-4">Hekim</dt>
+            <dd class="col-sm-8">@Model.Veterinarian.Title @Model.Veterinarian.User.FullName</dd>
+            <dt class="col-sm-4">Ücret</dt>
+            <dd class="col-sm-8">@Model.Price.ToString("N2") ₺</dd>
+            @if (Model.RejectionReason is not null)
+            {
+                <dt class="col-sm-4">Ret gerekçesi</dt>
+                <dd class="col-sm-8">@Model.RejectionReason</dd>
+            }
+            @if (Model.ExaminationNote is not null)
+            {
+                <dt class="col-sm-4">Muayene notu</dt>
+                <dd class="col-sm-8" style="white-space: pre-line">@Model.ExaminationNote</dd>
+            }
+        </dl>
+        <partial name="_Actions" model="Model" />
+    </div>
+</div>
+<a asp-action="Index" class="btn btn-link mt-3 ps-0">← Randevulara dön</a>

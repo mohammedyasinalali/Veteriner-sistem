@@ -1,0 +1,51 @@
+@* Randevu işlem düğmeleri. Düğmeler yalnızca kolaylık içindir; asıl yetki ve kural kontrolü serviste yapılır. *@
+@using VetKlinik.Web.Domain
+@using VetKlinik.Web.Infrastructure
+@inject TimeProvider Time
+@model Appointment
+@{
+    var userId = User.FindFirst(System.Security.Claims.ClaimTypes.NameIdentifier)?.Value;
+    var isVet = User.IsInRole(Roles.Admin) || Model.Veterinarian.UserId == userId;
+    var isOwner = User.IsInRole(Roles.Admin) || (User.IsInRole(Roles.Uye) && Model.Pet.OwnerId == userId);
+    var returnUrl = Context.Request.Path + Context.Request.QueryString;
+    var started = Model.StartsAt <= ClinicTime.Now(Time);
+}
+
+<div class="d-flex flex-wrap gap-2 align-items-start">
+    @if (isVet && Model.Status == AppointmentStatus.Pending && !started)
+    {
+        <form asp-controller="Appointments" asp-action="Approve" asp-route-id="@Model.Id" method="post">
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+            <button type="submit" class="btn btn-sm btn-success">Onayla</button>
+        </form>
+        <details>
+            <summary class="btn btn-sm btn-outline-danger">Reddet</summary>
+            <form asp-controller="Appointments" asp-action="Reject" asp-route-id="@Model.Id" method="post" class="mt-2" style="min-width: 16rem">
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <textarea name="reason" class="form-control form-control-sm mb-2" rows="2" required minlength="5" maxlength="500"
+                          placeholder="Ret gerekçesi (sahibine gösterilir)"></textarea>
+                <button type="submit" class="btn btn-sm btn-danger">Reddet</button>
+            </form>
+        </details>
+    }
+    @if (isVet && Model.Status == AppointmentStatus.Approved && started)
+    {
+        <details>
+            <summary class="btn btn-sm btn-primary">Tamamla</summary>
+            <form asp-controller="Appointments" asp-action="Complete" asp-route-id="@Model.Id" method="post" class="mt-2" style="min-width: 18rem">
+                <input type="hidden" name="returnUrl" value="@returnUrl" />
+                <textarea name="note" class="form-control form-control-sm mb-2" rows="3" required maxlength="2000"
+                          placeholder="Muayene notu"></textarea>
+                <button type="submit" class="btn btn-sm btn-primary">Kaydet ve tamamla</button>
+            </form>
+        </details>
+    }
+    @if (isOwner && !started && Model.Status is AppointmentStatus.Pending or AppointmentStatus.Approved)
+    {
+        <form asp-controller="Appointments" asp-action="Cancel" asp-route-id="@Model.Id" method="post"
+              onsubmit="return confirm('Randevu iptal edilsin mi?');">
+            <input type="hidden" name="returnUrl" value="@returnUrl" />
+            <button type="submit" class="btn btn-sm btn-outline-secondary">İptal et</button>
+        </form>
+    }
+</div>
