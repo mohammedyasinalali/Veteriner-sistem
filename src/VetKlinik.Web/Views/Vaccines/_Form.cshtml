@@ -1,0 +1,32 @@
+@model VetKlinik.Web.Models.Pets.VaccineFormModel
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+<div class="mb-3">
+    <label asp-for="VaccineName" class="form-label"></label>
+    <input asp-for="VaccineName" class="form-control" list="asi-adlari" autocomplete="off" />
+    <datalist id="asi-adlari">
+        <option value="Kuduz"></option>
+        <option value="Karma (DHPPi)"></option>
+        <option value="Leptospiroz"></option>
+        <option value="Bronşit (Kennel Cough)"></option>
+        <option value="Lyme"></option>
+        <option value="Kedi Karma (FVRCP)"></option>
+        <option value="Kedi Lösemisi (FeLV)"></option>
+        <option value="İç Parazit"></option>
+        <option value="Dış Parazit"></option>
+    </datalist>
+    <span asp-validation-for="VaccineName" class="text-danger small"></span>
+</div>
+<div class="row">
+    <div class="col-sm-6 mb-3">
+        <label asp-for="AdministeredOn" class="form-label"></label>
+        <input asp-for="AdministeredOn" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" data-msg-max="Uygulama tarihi gelecekte olamaz." />
+        <span asp-validation-for="AdministeredOn" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-6 mb-3">
+        <label asp-for="NextDueOn" class="form-label"></label>
+        <input asp-for="NextDueOn" class="form-control" />
+        <div class="form-text">Boş bırakılırsa tekrar dozu yok sayılır.</div>
+        <span asp-validation-for="NextDueOn" class="text-danger small"></span>
+    </div>
+</div>

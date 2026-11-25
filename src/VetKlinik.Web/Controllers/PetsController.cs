@@ -12,7 +12,7 @@ namespace VetKlinik.Web.Controllers;
 /// veya düzenleyemediği hayvan için 404 döner (kaydın varlığı da belli olmaz).
 /// </summary>
 [Authorize]
-public class PetsController(PetService pets, PhotoStorage photos) : Controller
+public class PetsController(PetService pets, VaccineService vaccines, PhotoStorage photos) : Controller
 {
     private const long MaxRequestBytes = 3 * 1024 * 1024;
 
@@ -22,12 +22,13 @@ public class PetsController(PetService pets, PhotoStorage photos) : Controller
 
     public async Task<IActionResult> Details(int id)
     {
-        var pet = await pets.FindAsync(Me, id);
-        if (pet is null)
+        var schedule = await vaccines.GetScheduleAsync(Me, id);
+        if (schedule is null)
             return NotFound();
 
         ViewData["CanEdit"] = await pets.FindEditableAsync(Me, id) is not null;
-        return View(pet);
+        ViewData["Me"] = Me;
+        return View(schedule);
     }
 
     /// <summary>Fotoğraf yalnızca hayvanı görebilen kullanıcıya gönderilir.</summary>

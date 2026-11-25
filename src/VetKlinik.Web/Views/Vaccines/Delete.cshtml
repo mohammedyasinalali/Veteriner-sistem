@@ -1,0 +1,13 @@
+@model VetKlinik.Web.Domain.VaccineRecord
+@{ ViewData["Title"] = "Aşı Kaydını Sil"; }
+
+<h1 class="h3 mb-3">Aşı Kaydını Sil</h1>
+<div class="card shadow-sm" style="max-width: 32rem">
+    <div class="card-body">
+        <p><strong>@Model.Pet.Name</strong> için <strong>@Model.VaccineName</strong> (@Model.AdministeredOn.ToString("dd.MM.yyyy")) kaydı silinsin mi?</p>
+        <form asp-action="Delete" asp-route-id="@Model.Id" method="post">
+            <button type="submit" class="btn btn-danger">Sil</button>
+            <a asp-controller="Pets" asp-action="Details" asp-route-id="@Model.PetId" class="btn btn-link">Vazgeç</a>
+        </form>
+    </div>
+</div>

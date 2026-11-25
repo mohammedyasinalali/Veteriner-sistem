@@ -33,6 +33,7 @@ public class VaccineService(AppDbContext db, PetService pets, TimeProvider time)
             return null;
 
         var history = await db.VaccineRecords
+            .Include(v => v.Pet)
             .Include(v => v.Veterinarian).ThenInclude(v => v!.User)
             .Where(v => v.PetId == petId)
             .OrderByDescending(v => v.AdministeredOn).ThenByDescending(v => v.Id)
@@ -72,15 +73,20 @@ public class VaccineService(AppDbContext db, PetService pets, TimeProvider time)
     }
 
     /// <summary>Kullanıcının düzenleyebileceği kayıt (Pet dahil); değilse null.</summary>
-    public Task<VaccineRecord?> FindEditableAsync(CurrentUser user, int id)
+    public async Task<VaccineRecord?> FindEditableAsync(CurrentUser user, int id)
     {
-        var records = db.VaccineRecords.Include(v => v.Pet).Where(v => v.Id == id);
-        if (!user.IsAdmin)
-            records = records.Where(v => v.VeterinarianId != null
-                ? v.Veterinarian!.UserId == user.Id
-                : v.Pet.OwnerId == user.Id);
-        return records.SingleOrDefaultAsync();
+        var record = await db.VaccineRecords
+            .Include(v => v.Pet)
+            .Include(v => v.Veterinarian)
+            .SingleOrDefaultAsync(v => v.Id == id);
+        return record is not null && CanEdit(user, record) ? record : null;
     }
+
+    /// <summary>Düzenleme kuralı (tek yerde; ekranlar da düğmeleri buna göre gösterir). Pet ve Veterinarian yüklü olmalı.</summary>
+    public static bool CanEdit(CurrentUser user, VaccineRecord record) =>
+        user.IsAdmin || (record.Veterinarian is not null
+            ? record.Veterinarian.UserId == user.Id
+            : record.Pet.OwnerId == user.Id);
 
     public async Task<ServiceResult> UpdateAsync(CurrentUser user, int id, VaccineFormModel form)
     {
