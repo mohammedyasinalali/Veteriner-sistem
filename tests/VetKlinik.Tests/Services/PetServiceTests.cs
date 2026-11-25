@@ -218,4 +218,15 @@ public class PetServiceTests(SqlServerFixture fixture) : IClassFixture<SqlServer
 
         Assert.True(result.Succeeded, string.Join(" ", result.Errors));
     }
+
+    [Fact]
+    public async Task Database_rejects_duplicate_name_for_same_owner()
+    {
+        var seed = await fixture.ResetAsync();
+        await using var db = fixture.NewContext();
+        db.Pets.Add(new Pet { OwnerId = seed.OwnerA.Id, Name = "PAMUK", Breed = "Tekir", BirthDate = new DateOnly(2024, 1, 1), WeightKg = 3 });
+
+        // Servis kontrolünü atlatan eşzamanlı iki istek de veritabanında durdurulur.
+        await Assert.ThrowsAsync<DbUpdateException>(() => db.SaveChangesAsync());
+    }
 }

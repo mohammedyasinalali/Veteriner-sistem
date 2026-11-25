@@ -3,6 +3,11 @@ if (window.jQuery && $.validator) {
     $.validator.methods.number = function (value, element) {
         return this.optional(element) || /^-?\d+(,\d+)?$/.test(value);
     };
+    // HTML max/min özelliklerinden gelen kurallar (ör. doğum tarihi) için Türkçe mesajlar.
+    $.extend($.validator.messages, {
+        max: $.validator.format("Değer en fazla {0} olabilir."),
+        min: $.validator.format("Değer en az {0} olabilir.")
+    });
     $.validator.methods.range = function (value, element, param) {
         var number = parseFloat(String(value).replace(",", "."));
         return this.optional(element) || (number >= param[0] && number <= param[1]);

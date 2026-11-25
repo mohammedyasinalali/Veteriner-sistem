@@ -37,6 +37,8 @@ public class PetsController(PetService pets, PhotoStorage photos) : Controller
         var path = photos.PathOf(pet?.PhotoFileName);
         if (path is null)
             return NotFound();
+        // Yetkiye bağlı içerik: ortak önbelleklerde (proxy) saklanmasın.
+        Response.Headers.CacheControl = "private, max-age=300";
         return PhysicalFile(path, path.EndsWith(".png") ? "image/png" : "image/jpeg");
     }
 

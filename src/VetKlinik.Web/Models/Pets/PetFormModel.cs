@@ -27,7 +27,7 @@ public class PetFormModel
 
     [Display(Name = "Kilo (kg)")]
     [Range(typeof(decimal), "0.01", "500", ParseLimitsInInvariantCulture = true,
-        ErrorMessage = "{0} 0 ile 500 arasında olmalıdır.")]
+        ErrorMessage = "{0} 0,01 ile 500 arasında olmalıdır.")]
     public decimal WeightKg { get; set; }
 
     [Display(Name = "Fotoğraf")]

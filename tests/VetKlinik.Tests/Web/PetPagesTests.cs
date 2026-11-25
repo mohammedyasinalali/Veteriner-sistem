@@ -88,6 +88,84 @@ public class PetPagesTests(WebFixture web) : IClassFixture<WebFixture>
         Assert.Equal(HttpStatusCode.NotFound, (await member.GetAsync($"/Pets/Details/{id}")).StatusCode);
     }
 
+    private static readonly byte[] Png = [0x89, 0x50, 0x4E, 0x47, 0x0D, 0x0A, 0x1A, 0x0A, 0, 0, 0, 0];
+
+    /// <summary>Fotoğraflı formu multipart olarak gönderir (antiforgery token'ı form sayfasından okunur).</summary>
+    private static async Task<HttpResponseMessage> PostMultipartAsync(HttpClient client, string url, Dictionary<string, string> fields, byte[]? photo)
+    {
+        var page = await client.GetStringAsync(url);
+        var token = System.Text.RegularExpressions.Regex.Match(page, "name=\"__RequestVerificationToken\" type=\"hidden\" value=\"([^\"]+)\"").Groups[1].Value;
+        var content = new MultipartFormDataContent { { new StringContent(token), "__RequestVerificationToken" } };
+        foreach (var (key, value) in fields)
+            content.Add(new StringContent(value), key);
+        if (photo is not null)
+            content.Add(new ByteArrayContent(photo), "Photo", "foto.png");
+        return await client.PostAsync(url, content);
+    }
+
+    [Fact]
+    public async Task Photo_is_served_only_to_users_who_can_see_the_pet_and_removed_on_request()
+    {
+        var owner = await web.MemberClientAsync("fotograf@test.local");
+        var create = await PostMultipartAsync(owner, "/Pets/Create", PetFields("Bulut"), Png);
+        Assert.Equal(HttpStatusCode.Redirect, create.StatusCode);
+        var id = create.Headers.Location!.ToString().Split('/').Last();
+
+        var photo = await owner.GetAsync($"/Pets/Photo/{id}");
+        Assert.Equal(HttpStatusCode.OK, photo.StatusCode);
+        Assert.Equal("image/png", photo.Content.Headers.ContentType!.MediaType);
+        Assert.Single(Directory.GetFiles(web.UploadsPath));
+
+        var intruder = await web.MemberClientAsync("fotografci@test.local");
+        Assert.Equal(HttpStatusCode.NotFound, (await intruder.GetAsync($"/Pets/Photo/{id}")).StatusCode);
+
+        var fields = PetFields("Bulut");
+        fields["RemovePhoto"] = "true";
+        var edit = await PostMultipartAsync(owner, $"/Pets/Edit/{id}", fields, photo: null);
+        Assert.Equal(HttpStatusCode.Redirect, edit.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await owner.GetAsync($"/Pets/Photo/{id}")).StatusCode);
+        Assert.Empty(Directory.GetFiles(web.UploadsPath));
+    }
+
+    [Fact]
+    public async Task Vet_can_view_patient_but_not_edit_or_delete()
+    {
+        var owner = await web.MemberClientAsync("hasta@test.local");
+        var id = int.Parse((await CreatePetAsync(owner, "Zeytin")).Split('/').Last());
+
+        var admin = await web.AdminClientAsync();
+        var vetCreate = await WebFixture.PostFormAsync(admin, "/Admin/Veterinarians/Create", new()
+        {
+            ["FullName"] = "Dr. Can Aydın",
+            ["Email"] = "can@test.local",
+            ["Password"] = "hekim123",
+            ["Title"] = "Vet. Hek.",
+            ["IsActive"] = "true",
+        });
+        Assert.Equal(HttpStatusCode.Redirect, vetCreate.StatusCode);
+        await using (var db = web.Database.NewContext())
+        {
+            var vet = await db.Veterinarians.Include(v => v.User).SingleAsync(v => v.User.Email == "can@test.local");
+            var service = await db.Services.FirstAsync();
+            var start = new DateTime(2026, 12, 7, 10, 0, 0);
+            db.Appointments.Add(new VetKlinik.Web.Domain.Appointment
+            {
+                PetId = id, VeterinarianId = vet.Id, ServiceId = service.Id, StartsAt = start,
+                EndsAt = start.AddMinutes(service.DurationMinutes), DurationMinutes = service.DurationMinutes,
+                Price = service.Price, CreatedAt = start.AddDays(-1),
+            });
+            await db.SaveChangesAsync();
+        }
+        var vetClient = web.NewClient();
+        await WebFixture.PostFormAsync(vetClient, "/Account/Login", new() { ["Email"] = "can@test.local", ["Password"] = "hekim123" });
+
+        Assert.Contains("Zeytin", await vetClient.GetStringAsync("/Pets"));
+        Assert.Equal(HttpStatusCode.OK, (await vetClient.GetAsync($"/Pets/Details/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await vetClient.GetAsync($"/Pets/Edit/{id}")).StatusCode);
+        var delete = await WebFixture.PostFormAsync(vetClient, $"/Pets/Delete/{id}", [], formPageUrl: $"/Pets/Details/{id}");
+        Assert.Equal(HttpStatusCode.NotFound, delete.StatusCode);
+    }
+
     [Fact]
     public async Task Anonymous_is_redirected_to_login()
     {

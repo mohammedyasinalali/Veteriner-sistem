@@ -1,3 +1,4 @@
+using Microsoft.Data.SqlClient;
 using Microsoft.EntityFrameworkCore;
 using VetKlinik.Web.Auth;
 using VetKlinik.Web.Data;
@@ -49,8 +50,8 @@ public class PetService(AppDbContext db, PhotoStorage photos, TimeProvider time)
             pet.PhotoFileName = await photos.SaveAsync(form.Photo);
 
         db.Pets.Add(pet);
-        await db.SaveChangesAsync();
-        return ServiceResult<Pet>.Ok(pet);
+        var saved = await TrySaveAsync(form, newPhoto: pet.PhotoFileName);
+        return saved.Succeeded ? ServiceResult<Pet>.Ok(pet) : ServiceResult<Pet>.Fail([.. saved.Errors]);
     }
 
     public async Task<ServiceResult> UpdateAsync(CurrentUser user, int id, PetFormModel form)
@@ -66,12 +67,15 @@ public class PetService(AppDbContext db, PhotoStorage photos, TimeProvider time)
 
         Apply(pet, form);
         var oldPhoto = pet.PhotoFileName;
+        string? newPhoto = null;
         if (form.Photo is not null)
-            pet.PhotoFileName = await photos.SaveAsync(form.Photo);
+            pet.PhotoFileName = newPhoto = await photos.SaveAsync(form.Photo);
         else if (form.RemovePhoto)
             pet.PhotoFileName = null;
 
-        await db.SaveChangesAsync();
+        var saved = await TrySaveAsync(form, newPhoto);
+        if (!saved.Succeeded)
+            return saved;
         if (oldPhoto != pet.PhotoFileName)
             photos.Delete(oldPhoto);
         return ServiceResult.Ok();
@@ -93,6 +97,31 @@ public class PetService(AppDbContext db, PhotoStorage photos, TimeProvider time)
         return ServiceResult.Ok();
     }
 
+    /// <summary>
+    /// Kaydeder. Servis kontrolünden aynı anda geçen iki istekte veritabanındaki benzersiz indeks
+    /// (OwnerId, Name) devreye girer; bu durumda aynı Türkçe hata döner ve yeni yüklenen fotoğraf silinir.
+    /// </summary>
+    private async Task<ServiceResult> TrySaveAsync(PetFormModel form, string? newPhoto)
+    {
+        try
+        {
+            await db.SaveChangesAsync();
+            return ServiceResult.Ok();
+        }
+        catch (DbUpdateException ex) when (ex.InnerException is SqlException { Number: 2601 or 2627 })
+        {
+            photos.Delete(newPhoto);
+            return ServiceResult.Fail(DuplicateName(form.Name.Trim()));
+        }
+        catch
+        {
+            photos.Delete(newPhoto);
+            throw;
+        }
+    }
+
+    private static string DuplicateName(string name) => $"Bu sahibin '{name}' adında bir hayvanı zaten var.";
+
     private async Task<string[]> ValidateAsync(string ownerId, PetFormModel form, int? exceptId)
     {
         var errors = new List<string>();
@@ -104,7 +133,7 @@ public class PetService(AppDbContext db, PhotoStorage photos, TimeProvider time)
         var name = form.Name.Trim();
         if (await db.Pets.AnyAsync(p => p.OwnerId == ownerId && p.Id != exceptId
                 && EF.Functions.Collate(p.Name, "Turkish_CI_AS") == name))
-            errors.Add($"'{name}' adında bir hayvanınız zaten var.");
+            errors.Add(DuplicateName(name));
 
         if (form.Photo is not null)
             errors.AddRange(photos.Validate(form.Photo).Errors);
