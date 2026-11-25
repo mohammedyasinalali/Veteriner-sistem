@@ -12,6 +12,13 @@ namespace VetKlinik.Web.Services;
 /// <summary>Bir hekimin seçilen gündeki uygun başlangıç saatleri.</summary>
 public record VetSlots(int VeterinarianId, string FullName, string Title, IReadOnlyList<DateTime> Slots);
 
+/// <summary>Hekim paneli: işlem bekleyen ve yaklaşan randevular.</summary>
+public record VetDashboard(
+    IReadOnlyList<Appointment> Pending,
+    IReadOnlyList<Appointment> Today,
+    IReadOnlyList<Appointment> Upcoming,
+    IReadOnlyList<Appointment> AwaitingCompletion);
+
 /// <summary>
 /// Randevu alma kuralları. Bir saatin uygun olup olmadığına tek bir fonksiyon (<see cref="SlotProblem"/>) karar verir;
 /// uygun saat listesi de randevu kaydı da onu kullanır. MVC, REST API ve MCP bu servisi çağırır.
@@ -91,7 +98,7 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
         // Yalnız hayvanı düzenleyebilen (sahibi veya Admin) randevu alabilir.
         var pet = await pets.FindEditableAsync(user, form.PetId);
         if (pet is null)
-            return ServiceResult<Appointment>.Fail("Hayvan bulunamadı.");
+            return ServiceResult<Appointment>.NotFound("Hayvan bulunamadı.");
 
         var service = await db.Services.SingleOrDefaultAsync(s => s.Id == form.ServiceId && s.IsActive);
         if (service is null)
@@ -163,23 +170,133 @@ public class AppointmentService(AppDbContext db, PetService pets, TimeProvider t
         }
     }
 
-    // ---------------- Listeleme ----------------
+    // ---------------- Görme ve listeleme ----------------
 
     /// <summary>Admin: hepsi. Hekim: kendi randevuları. Üye: kendi hayvanlarının randevuları.</summary>
-    public Task<List<Appointment>> ListAsync(CurrentUser user)
+    private IQueryable<Appointment> Visible(CurrentUser user)
     {
         var query = db.Appointments
-            .Include(a => a.Pet)
+            .Include(a => a.Pet).ThenInclude(p => p.Owner)
             .Include(a => a.Service)
             .Include(a => a.Veterinarian).ThenInclude(v => v.User)
             .AsQueryable();
 
-        if (!user.IsAdmin)
-            query = user.IsVeterinarian
-                ? query.Where(a => a.Veterinarian.UserId == user.Id)
-                : query.Where(a => a.Pet.OwnerId == user.Id);
+        if (user.IsAdmin)
+            return query;
+        return user.IsVeterinarian
+            ? query.Where(a => a.Veterinarian.UserId == user.Id)
+            : query.Where(a => a.Pet.OwnerId == user.Id);
+    }
 
-        return query.OrderByDescending(a => a.StartsAt).ToListAsync();
+    public Task<List<Appointment>> ListAsync(CurrentUser user) =>
+        Visible(user).OrderByDescending(a => a.StartsAt).ToListAsync();
+
+    public Task<Appointment?> FindAsync(CurrentUser user, int id) =>
+        Visible(user).SingleOrDefaultAsync(a => a.Id == id);
+
+    public async Task<VetDashboard> GetVetDashboardAsync(CurrentUser user)
+    {
+        var now = ClinicTime.Now(time);
+        var todayStart = now.Date;
+        var tomorrow = todayStart.AddDays(1);
+        var list = await Visible(user)
+            .Where(a => a.Veterinarian.UserId == user.Id && a.EndsAt >= todayStart.AddDays(-30)
+                        && (a.Status == AppointmentStatus.Pending || a.Status == AppointmentStatus.Approved))
+            .OrderBy(a => a.StartsAt)
+            .ToListAsync();
+
+        return new VetDashboard(
+            Pending: [.. list.Where(a => a.Status == AppointmentStatus.Pending && a.StartsAt > now)],
+            Today: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt >= todayStart && a.StartsAt < tomorrow)],
+            Upcoming: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt >= tomorrow)],
+            AwaitingCompletion: [.. list.Where(a => a.Status == AppointmentStatus.Approved && a.StartsAt <= now)]);
+    }
+
+    // ---------------- Durum geçişleri ----------------
+    // Pending → Approved / Rejected (hekim), Approved → Completed (hekim), Pending/Approved → Cancelled (sahip).
+
+    public Task<ServiceResult> ApproveAsync(CurrentUser user, int id) =>
+        TransitionAsync(user, id, IsVetOf, (a, now) =>
+        {
+            if (a.Status != AppointmentStatus.Pending)
+                return "Yalnızca onay bekleyen randevular onaylanabilir.";
+            if (a.StartsAt <= now)
+                return "Randevu başlamış veya geçmişte kaldığı için onaylanamaz.";
+            a.Status = AppointmentStatus.Approved;
+            return null;
+        });
+
+    public Task<ServiceResult> RejectAsync(CurrentUser user, int id, string? reason) =>
+        TransitionAsync(user, id, IsVetOf, (a, _) =>
+        {
+            var text = reason?.Trim() ?? "";
+            if (text.Length is < 5 or > 500)
+                return "Ret gerekçesi 5 ile 500 karakter arasında olmalıdır.";
+            if (a.Status != AppointmentStatus.Pending)
+                return "Yalnızca onay bekleyen randevular reddedilebilir.";
+            a.Status = AppointmentStatus.Rejected;
+            a.RejectionReason = text;
+            return null;
+        });
+
+    public Task<ServiceResult> CompleteAsync(CurrentUser user, int id, string? note) =>
+        TransitionAsync(user, id, IsVetOf, (a, now) =>
+        {
+            var text = note?.Trim() ?? "";
+            if (text.Length is < 1 or > 2000)
+                return "Muayene notu zorunludur (en fazla 2000 karakter).";
+            if (a.Status != AppointmentStatus.Approved)
+                return "Yalnızca onaylanmış randevular tamamlanabilir.";
+            if (a.StartsAt > now)
+                return "Randevu başlamadan tamamlanamaz.";
+            a.Status = AppointmentStatus.Completed;
+            a.ExaminationNote = text;
+            return null;
+        });
+
+    public Task<ServiceResult> CancelAsync(CurrentUser user, int id) =>
+        TransitionAsync(user, id, IsOwnerOf, (a, now) =>
+        {
+            if (a.Status is not (AppointmentStatus.Pending or AppointmentStatus.Approved))
+                return "Bu randevu iptal edilemez.";
+            if (a.StartsAt <= now)
+                return "Randevu başlamış veya geçmişte kaldığı için iptal edilemez.";
+            a.Status = AppointmentStatus.Cancelled;
+            return null;
+        });
+
+    private static bool IsVetOf(CurrentUser user, Appointment a) => user.IsAdmin || a.Veterinarian.UserId == user.Id;
+
+    private static bool IsOwnerOf(CurrentUser user, Appointment a) => user.IsAdmin || (!user.IsVeterinarian && a.Pet.OwnerId == user.Id);
+
+    /// <summary>
+    /// Ortak geçiş akışı: yükle → yetki (yoksa 404) → kural (change null değilse hata) → kaydet.
+    /// RowVersion: aynı randevu aynı anda iki kez değiştirilirse ikincisi DbUpdateConcurrencyException alır.
+    /// </summary>
+    private async Task<ServiceResult> TransitionAsync(
+        CurrentUser user, int id, Func<CurrentUser, Appointment, bool> canAct, Func<Appointment, DateTime, string?> change)
+    {
+        var appointment = await db.Appointments
+            .Include(a => a.Pet)
+            .Include(a => a.Veterinarian)
+            .SingleOrDefaultAsync(a => a.Id == id);
+        if (appointment is null || !canAct(user, appointment))
+            return ServiceResult.NotFound("Randevu bulunamadı.");
+
+        var problem = change(appointment, ClinicTime.Now(time));
+        if (problem is not null)
+            return ServiceResult.Fail(problem);
+
+        try
+        {
+            await db.SaveChangesAsync();
+            return ServiceResult.Ok();
+        }
+        catch (DbUpdateConcurrencyException)
+        {
+            db.ChangeTracker.Clear();
+            return ServiceResult.Fail("Randevu bu arada değiştirildi. Sayfayı yenileyip tekrar deneyin.");
+        }
     }
 
     // ---------------- Kurallar ----------------
