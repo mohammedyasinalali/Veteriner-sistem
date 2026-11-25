@@ -11,6 +11,10 @@
     @if (canEdit)
     {
         <div>
+            @if (User.IsInRole(Roles.Uye))
+            {
+                <a asp-controller="Appointments" asp-action="Book" asp-route-petId="@pet.Id" class="btn btn-primary">Randevu al</a>
+            }
             <a asp-action="Edit" asp-route-id="@pet.Id" class="btn btn-outline-primary">Düzenle</a>
             <a asp-action="Delete" asp-route-id="@pet.Id" class="btn btn-outline-danger">Sil</a>
         </div>

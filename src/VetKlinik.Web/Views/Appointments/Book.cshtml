@@ -1,0 +1,81 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@model VetKlinik.Web.Models.Appointments.BookingPageModel
+@{
+    ViewData["Title"] = "Randevu Al";
+    var petItems = Model.Pets.Select(p => new SelectListItem(p.Name, p.Id.ToString(), p.Id == Model.PetId));
+    var serviceItems = Model.Services.Select(s => new SelectListItem($"{s.Name} ({s.DurationMinutes} dk · {s.Price:N2} ₺)", s.Id.ToString(), s.Id == Model.ServiceId));
+}
+
+<h1 class="h3 mb-3">Randevu Al</h1>
+
+@if (Model.Pets.Count == 0)
+{
+    <div class="alert alert-info">
+        Randevu alabilmek için önce bir hayvan eklemelisiniz.
+        <a asp-controller="Pets" asp-action="Create" class="alert-link">Hayvan ekle</a>
+    </div>
+    return;
+}
+
+<form method="get" asp-action="Book" id="arama" class="card card-body shadow-sm mb-4" style="max-width: 56rem">
+    <div class="row g-3 align-items-end">
+        <div class="col-md-3">
+            <label for="petId" class="form-label">Hayvan</label>
+            <select id="petId" name="petId" class="form-select" required data-val="true" data-val-required="Hayvan seçiniz.">
+                <option value="">Seçiniz</option>
+                @foreach (var i in petItems) { <option value="@i.Value" selected="@i.Selected">@i.Text</option> }
+            </select>
+            <span class="text-danger small field-validation-valid" data-valmsg-for="petId" data-valmsg-replace="true"></span>
+        </div>
+        <div class="col-md-4">
+            <label for="serviceId" class="form-label">Hizmet</label>
+            <select id="serviceId" name="serviceId" class="form-select" required data-val="true" data-val-required="Hizmet seçiniz.">
+                <option value="">Seçiniz</option>
+                @foreach (var i in serviceItems) { <option value="@i.Value" selected="@i.Selected">@i.Text</option> }
+            </select>
+            <span class="text-danger small field-validation-valid" data-valmsg-for="serviceId" data-valmsg-replace="true"></span>
+        </div>
+        <div class="col-md-3">
+            <label for="date" class="form-label">Gün</label>
+            <input id="date" name="date" type="date" class="form-control" value="@Model.Date?.ToString("yyyy-MM-dd")"
+                   min="@Model.Today.ToString("yyyy-MM-dd")" max="@Model.LastDay.ToString("yyyy-MM-dd")"
+                   required data-val="true" data-val-required="Gün seçiniz."
+                   data-msg-min="Geçmiş bir gün seçilemez." data-msg-max="En fazla 60 gün sonrası seçilebilir." />
+            <span class="text-danger small field-validation-valid" data-valmsg-for="date" data-valmsg-replace="true"></span>
+        </div>
+        <div class="col-md-2 d-grid">
+            <button type="submit" class="btn btn-primary">Saatleri göster</button>
+        </div>
+    </div>
+</form>
+
+@if (Model.Results is not null)
+{
+    <h2 class="h5 mb-3">@Model.Date!.Value.ToString("dd MMMM yyyy, dddd") — uygun saatler</h2>
+    @if (Model.Results.Count == 0)
+    {
+        <div class="alert alert-light border">Bu gün için uygun saat yok. Klinik kapalı olabilir ya da tüm saatler dolu; başka bir gün deneyin.</div>
+    }
+    @foreach (var vet in Model.Results)
+    {
+        <div class="card shadow-sm mb-3" style="max-width: 56rem">
+            <div class="card-body">
+                <h3 class="h6 fw-semibold mb-3">@vet.Title @vet.FullName</h3>
+                <div class="d-flex flex-wrap gap-2">
+                @foreach (var slot in vet.Slots)
+                {
+                    <form method="post" asp-action="Book" class="d-inline">
+                        <input type="hidden" name="PetId" value="@Model.PetId" />
+                        <input type="hidden" name="ServiceId" value="@Model.ServiceId" />
+                        <input type="hidden" name="VeterinarianId" value="@vet.VeterinarianId" />
+                        <input type="hidden" name="StartsAt" value="@slot.ToString("yyyy-MM-ddTHH:mm")" />
+                        <button type="submit" class="btn btn-outline-success btn-sm" title="@vet.FullName, @slot.ToString("HH:mm")">@slot.ToString("HH:mm")</button>
+                    </form>
+                }
+                </div>
+            </div>
+        </div>
+    }
+}
+
+@section Scripts { <partial name="_ValidationScriptsPartial" /> }

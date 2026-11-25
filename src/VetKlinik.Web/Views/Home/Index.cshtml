@@ -10,6 +10,10 @@
     {
         <a asp-controller="Account" asp-action="Register" class="btn btn-primary">Üye olun, randevu alın</a>
     }
+    else if (User.IsInRole(Roles.Uye))
+    {
+        <a asp-controller="Appointments" asp-action="Book" class="btn btn-primary">Randevu al</a>
+    }
 </div>
 
 <div class="row g-4">
