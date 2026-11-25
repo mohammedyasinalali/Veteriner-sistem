@@ -1,0 +1,53 @@
+@using VetKlinik.Web.Infrastructure
+@model List<VetKlinik.Web.Domain.Pet>
+@{
+    var title = User.IsInRole(Roles.Admin) ? "Hayvanlar" : User.IsInRole(Roles.Veteriner) ? "Hastalarım" : "Hayvanlarım";
+    var showOwner = !User.IsInRole(Roles.Uye);
+    ViewData["Title"] = title;
+}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h1 class="h3 mb-0">@title</h1>
+    @if (User.IsInRole(Roles.Uye))
+    {
+        <a asp-action="Create" class="btn btn-primary">Yeni hayvan</a>
+    }
+</div>
+
+@if (Model.Count == 0)
+{
+    <div class="alert alert-light border">
+        @(User.IsInRole(Roles.Uye) ? "Henüz kayıtlı hayvanınız yok. \"Yeni hayvan\" ile ekleyebilirsiniz." : "Gösterilecek hayvan yok.")
+    </div>
+}
+else
+{
+    <div class="table-responsive">
+        <table class="table table-hover align-middle">
+            <thead>
+                <tr><th></th><th>Adı</th><th>Tür / Irk</th><th>Doğum tarihi</th><th class="text-end">Kilo</th>
+                    @if (showOwner) { <th>Sahibi</th> }
+                    <th></th></tr>
+            </thead>
+            <tbody>
+            @foreach (var p in Model)
+            {
+                <tr>
+                    <td style="width: 56px">
+                        @if (p.PhotoFileName is not null)
+                        {
+                            <img src="@Url.Action("Photo", new { id = p.Id })" alt="@p.Name" class="rounded" style="width: 40px; height: 40px; object-fit: cover" />
+                        }
+                    </td>
+                    <td class="fw-semibold">@p.Name</td>
+                    <td>@SpeciesNames.Name(p.Species) · @p.Breed</td>
+                    <td>@p.BirthDate.ToString("dd.MM.yyyy")</td>
+                    <td class="text-end">@p.WeightKg.ToString("0.##") kg</td>
+                    @if (showOwner) { <td>@p.Owner.FullName</td> }
+                    <td class="text-end"><a asp-action="Details" asp-route-id="@p.Id" class="btn btn-sm btn-outline-primary">Detay</a></td>
+                </tr>
+            }
+            </tbody>
+        </table>
+    </div>
+}

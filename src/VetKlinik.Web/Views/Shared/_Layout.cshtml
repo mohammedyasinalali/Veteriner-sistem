@@ -23,6 +23,12 @@
                         <li class="nav-item">
                             <a class="nav-link text-dark" asp-area="" asp-controller="Home" asp-action="Index">Ana Sayfa</a>
                         </li>
+                        @if (User.Identity?.IsAuthenticated == true)
+                        {
+                            <li class="nav-item">
+                                <a class="nav-link text-dark" asp-area="" asp-controller="Pets" asp-action="Index">@(User.IsInRole(Roles.Admin) ? "Hayvanlar" : User.IsInRole(Roles.Veteriner) ? "Hastalarım" : "Hayvanlarım")</a>
+                            </li>
+                        }
                         @if (User.IsInRole(Roles.Admin))
                         {
                             <li class="nav-item">

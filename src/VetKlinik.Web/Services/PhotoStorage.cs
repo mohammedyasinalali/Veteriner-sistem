@@ -46,6 +46,15 @@ public class PhotoStorage(string folder)
         return fileName;
     }
 
+    /// <summary>Kayıtlı dosyanın tam yolu; yoksa null.</summary>
+    public string? PathOf(string? fileName)
+    {
+        if (string.IsNullOrEmpty(fileName))
+            return null;
+        var path = Path.Combine(folder, Path.GetFileName(fileName));
+        return File.Exists(path) ? path : null;
+    }
+
     public void Delete(string? fileName)
     {
         if (string.IsNullOrEmpty(fileName))

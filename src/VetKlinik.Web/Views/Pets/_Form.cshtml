@@ -1,0 +1,55 @@
+@using Microsoft.AspNetCore.Mvc.Rendering
+@using VetKlinik.Web.Domain
+@using VetKlinik.Web.Infrastructure
+@model VetKlinik.Web.Models.Pets.PetFormModel
+@{
+    var species = Enum.GetValues<Species>().Select(s => new SelectListItem(SpeciesNames.Name(s), s.ToString()));
+    var current = ViewData["Pet"] as Pet;
+}
+
+<div asp-validation-summary="ModelOnly" class="alert alert-danger" role="alert"></div>
+<div class="row">
+    <div class="col-sm-6 mb-3">
+        <label asp-for="Name" class="form-label"></label>
+        <input asp-for="Name" class="form-control" />
+        <span asp-validation-for="Name" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-6 mb-3">
+        <label asp-for="Species" class="form-label"></label>
+        <select asp-for="Species" asp-items="species" class="form-select"></select>
+        <span asp-validation-for="Species" class="text-danger small"></span>
+    </div>
+</div>
+<div class="row">
+    <div class="col-sm-4 mb-3">
+        <label asp-for="Breed" class="form-label"></label>
+        <input asp-for="Breed" class="form-control" />
+        <span asp-validation-for="Breed" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-4 mb-3">
+        <label asp-for="BirthDate" class="form-label"></label>
+        <input asp-for="BirthDate" class="form-control" max="@DateTime.Today.ToString("yyyy-MM-dd")" />
+        <span asp-validation-for="BirthDate" class="text-danger small"></span>
+    </div>
+    <div class="col-sm-4 mb-3">
+        <label asp-for="WeightKg" class="form-label"></label>
+        <input asp-for="WeightKg" class="form-control" type="text" inputmode="decimal" value="@Model.WeightKg.ToString("0.##")" />
+        <span asp-validation-for="WeightKg" class="text-danger small"></span>
+    </div>
+</div>
+<div class="mb-3">
+    <label asp-for="Photo" class="form-label"></label>
+    @if (current?.PhotoFileName is not null)
+    {
+        <div class="d-flex align-items-center gap-3 mb-2">
+            <img src="@Url.Action("Photo", new { id = current.Id })" alt="@current.Name" class="rounded border" style="width: 80px; height: 80px; object-fit: cover" />
+            <div class="form-check">
+                <input asp-for="RemovePhoto" class="form-check-input" />
+                <label asp-for="RemovePhoto" class="form-check-label"></label>
+            </div>
+        </div>
+    }
+    <input asp-for="Photo" type="file" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" />
+    <div class="form-text">İsteğe bağlı. jpg veya png, en fazla 2 MB.</div>
+    <span asp-validation-for="Photo" class="text-danger small"></span>
+</div>
