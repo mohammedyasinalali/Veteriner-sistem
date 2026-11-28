@@ -31,16 +31,19 @@ public sealed partial class WebFixture : IAsyncLifetime
     public HttpClient NewClient() =>
         Factory.CreateClient(new WebApplicationFactoryClientOptions { AllowAutoRedirect = false });
 
-    public async Task<HttpClient> AdminClientAsync()
+    public Task<HttpClient> AdminClientAsync() => LoginClientAsync("g231210566@sakarya.edu.tr", "sau");
+
+    /// <summary>Var olan bir hesapla giriş yapmış istemci (ör. TestData kullanıcıları, parola TestData.Password).</summary>
+    public async Task<HttpClient> LoginClientAsync(string email, string password)
     {
         var client = NewClient();
         var response = await PostFormAsync(client, "/Account/Login", new()
         {
-            ["Email"] = "g231210566@sakarya.edu.tr",
-            ["Password"] = "sau",
+            ["Email"] = email,
+            ["Password"] = password,
         });
         if ((int)response.StatusCode != 302)
-            throw new InvalidOperationException("Admin girişi başarısız.");
+            throw new InvalidOperationException($"{email} girişi başarısız.");
         return client;
     }
 

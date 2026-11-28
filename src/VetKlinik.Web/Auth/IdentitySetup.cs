@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authentication.Cookies;
 using Microsoft.AspNetCore.Identity;
 using VetKlinik.Web.Data;
 using VetKlinik.Web.Domain;
@@ -28,8 +30,21 @@ public static class IdentitySetup
             options.LoginPath = "/Account/Login";
             options.LogoutPath = "/Account/Logout";
             options.AccessDeniedPath = "/Account/AccessDenied";
+
+            // REST API istemcisi HTML giriş sayfasına yönlendirilmez: 401 (giriş yok) / 403 (yetki yok).
+            options.Events.OnRedirectToLogin = context => ApiAwareRedirect(context, StatusCodes.Status401Unauthorized);
+            options.Events.OnRedirectToAccessDenied = context => ApiAwareRedirect(context, StatusCodes.Status403Forbidden);
         });
 
         return services;
+    }
+
+    private static Task ApiAwareRedirect(RedirectContext<CookieAuthenticationOptions> context, int apiStatus)
+    {
+        if (context.Request.Path.StartsWithSegments("/api"))
+            context.Response.StatusCode = apiStatus;
+        else
+            context.Response.Redirect(context.RedirectUri);
+        return Task.CompletedTask;
     }
 }

@@ -1,8 +1,10 @@
 using System.Globalization;
+using System.Text.Json.Serialization;
 using System.Text.Encodings.Web;
 using System.Text.Unicode;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.WebEncoders;
+using VetKlinik.Web.Api;
 using VetKlinik.Web.Auth;
 using VetKlinik.Web.Data;
 using VetKlinik.Web.Infrastructure;
@@ -22,7 +24,14 @@ builder.Services.AddControllersWithViews(options =>
 {
     TurkishModelBindingMessages.Apply(options.ModelBindingMessageProvider);
     options.ModelBinderProviders.Insert(0, new TurkishDecimalModelBinderProvider());
-});
+})
+.AddJsonOptions(o =>
+{
+    // REST API: Türkçe karakterler kaçışsız ("Kısırlaştırma"), enum'lar metin ("Pending").
+    o.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
+    o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
+})
+.ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ApiControllerBase.InvalidModel);
 
 // Türkçe karakterler (ı, ş, ğ...) HTML'de &#x131; gibi kodlanmadan yazılsın.
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));

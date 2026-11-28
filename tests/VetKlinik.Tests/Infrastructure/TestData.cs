@@ -84,6 +84,7 @@ public static class TestData
             EmailConfirmed = true,
             LockoutEnabled = true,
             FullName = fullName,
+            SecurityStamp = Guid.NewGuid().ToString(),
         };
         user.PasswordHash = new PasswordHasher<ApplicationUser>().HashPassword(user, Password);
         return user;
