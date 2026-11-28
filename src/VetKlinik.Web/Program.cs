@@ -31,7 +31,12 @@ builder.Services.AddControllersWithViews(options =>
     o.JsonSerializerOptions.Encoder = JavaScriptEncoder.Create(UnicodeRanges.All);
     o.JsonSerializerOptions.Converters.Add(new JsonStringEnumConverter());
 })
-.ConfigureApiBehaviorOptions(o => o.InvalidModelStateResponseFactory = ApiControllerBase.InvalidModel);
+.ConfigureApiBehaviorOptions(o =>
+{
+    o.InvalidModelStateResponseFactory = ApiControllerBase.InvalidModel;
+    // Gövdesiz 404/415 vb. İngilizce ProblemDetails yerine aşağıdaki /api durum kodu sayfasıyla doldurulur.
+    o.SuppressMapClientErrors = true;
+});
 
 // Türkçe karakterler (ı, ş, ğ...) HTML'de &#x131; gibi kodlanmadan yazılsın.
 builder.Services.Configure<WebEncoderOptions>(o => o.TextEncoderSettings = new TextEncoderSettings(UnicodeRanges.All));
@@ -46,9 +51,16 @@ using (var scope = app.Services.CreateScope())
 await DbSeeder.SeedAsync(app.Services);
 
 // Configure the HTTP request pipeline.
+// /api: her hata Türkçe problem+json (HTML hata sayfası veya boş gövde yok).
+app.UseWhen(ApiProblems.IsApi, api =>
+{
+    api.UseExceptionHandler(handler => handler.Run(ApiProblems.WriteAsync));
+    api.UseStatusCodePages(context => ApiProblems.WriteAsync(context.HttpContext));
+});
+
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseWhen(context => !ApiProblems.IsApi(context), web => web.UseExceptionHandler("/Home/Error"));
     // The default HSTS value is 30 days. You may want to change this for production scenarios, see https://aka.ms/aspnetcore-hsts.
     app.UseHsts();
 }

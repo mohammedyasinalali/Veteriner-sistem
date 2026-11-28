@@ -12,7 +12,6 @@ namespace VetKlinik.Web.Api;
 /// </summary>
 [ApiController]
 [Authorize]
-[Produces("application/json")]
 public abstract class ApiControllerBase : ControllerBase
 {
     protected CurrentUser Me => CurrentUser.From(User);
@@ -21,12 +20,10 @@ public abstract class ApiControllerBase : ControllerBase
     protected ObjectResult Failure(ServiceResult result, string title) =>
         Error(result.IsNotFound ? StatusCodes.Status404NotFound : StatusCodes.Status400BadRequest, title, result.Errors);
 
-    protected ObjectResult Error(int status, string title, IEnumerable<string> errors)
-    {
-        var problem = new ProblemDetails { Status = status, Title = title };
-        problem.Extensions["errors"] = errors.ToList();
-        return new ObjectResult(problem) { StatusCode = status, ContentTypes = { "application/problem+json" } };
-    }
+    protected ObjectResult Error(int status, string title, IEnumerable<string> errors) =>
+        new(ApiProblems.Create(status, title, errors)) { StatusCode = status, ContentTypes = { ApiProblems.ContentType } };
+
+    protected ObjectResult BadRequestError(string message) => Error(StatusCodes.Status400BadRequest, "İstek geçersiz.", [message]);
 
     protected ObjectResult NotFoundError(string message) => Error(StatusCodes.Status404NotFound, message, [message]);
 
@@ -37,14 +34,18 @@ public abstract class ApiControllerBase : ControllerBase
             .SelectMany(e => e.Value!.Errors.Select(err => Message(e.Key, err)))
             .Distinct()
             .ToList();
-        var problem = new ProblemDetails { Status = StatusCodes.Status400BadRequest, Title = "İstek geçersiz." };
-        problem.Extensions["errors"] = errors;
-        return new BadRequestObjectResult(problem) { ContentTypes = { "application/problem+json" } };
+        var problem = ApiProblems.Create(StatusCodes.Status400BadRequest, "İstek geçersiz.", errors);
+        return new BadRequestObjectResult(problem) { ContentTypes = { ApiProblems.ContentType } };
     }
 
     // JSON çözümleme hataları İngilizce ve teknik gelir; kullanıcıya hangi alanın hatalı olduğu söylenir.
-    private static string Message(string key, ModelError error) =>
-        error.Exception is not null || key.StartsWith('$')
-            ? $"Geçersiz değer: {key.TrimStart('$', '.')}".TrimEnd(' ', ':')
-            : error.ErrorMessage;
+    // Sorgu parametresi hatalarının başına alan adı eklenir ("serviceId: 'abc' değeri geçerli değil.").
+    private static string Message(string key, ModelError error)
+    {
+        if (error.Exception is not null || key.StartsWith('$'))
+            return $"Geçersiz değer: {key.TrimStart('$', '.')}".TrimEnd(' ', ':');
+        return string.IsNullOrEmpty(key) || key.Contains('.') || error.ErrorMessage.Contains(key, StringComparison.OrdinalIgnoreCase)
+            ? error.ErrorMessage
+            : $"{key}: {error.ErrorMessage}";
+    }
 }

@@ -248,4 +248,146 @@ public class ApiTests(WebFixture web) : IClassFixture<WebFixture>
         Assert.Equal("Pamuk", vetA[0].GetProperty("petName").GetString());
         Assert.Equal(0, vetB.GetArrayLength());
     }
+
+    [Fact]
+    public async Task Errors_are_turkish_problem_json()
+    {
+        await web.Database.ResetAsync();
+        var anonymous = await web.NewClient().GetAsync("/api/veterinarians");
+        var vet = await As("veta@test.local");
+        var forbidden = await vet.GetAsync("/api/reports/services");
+        var unknown = await vet.GetAsync("/api/olmayan");
+        var badId = await vet.GetAsync("/api/appointments/abc");
+        var anonymousPost = await web.NewClient().PostAsJsonAsync("/api/appointments", new { petId = 1 });
+
+        await AssertProblemAsync(anonymous, HttpStatusCode.Unauthorized, "Giriş yapmanız gerekiyor.");
+        await AssertProblemAsync(forbidden, HttpStatusCode.Forbidden, "Bu işlem için yetkiniz yok.");
+        await AssertProblemAsync(unknown, HttpStatusCode.NotFound, "bulunamadı");
+        await AssertProblemAsync(badId, HttpStatusCode.NotFound, "bulunamadı");
+        await AssertProblemAsync(anonymousPost, HttpStatusCode.Unauthorized, "Giriş yapmanız gerekiyor.");
+    }
+
+    private static async Task AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status, string text)
+    {
+        Assert.Equal(status, response.StatusCode);
+        Assert.Equal("application/problem+json", response.Content.Headers.ContentType?.MediaType);
+        var body = await JsonAsync(response);
+        Assert.Contains(text, body.GetProperty("title").GetString());
+        Assert.NotEmpty(body.GetProperty("errors").EnumerateArray());
+    }
+
+    [Fact]
+    public async Task Rule_errors_are_problem_json()
+    {
+        var seed = await web.Database.ResetAsync();
+        var client = await As("ownera@test.local");
+        var startsAt = NextWeekday().ToDateTime(new TimeOnly(10, 0));
+        await client.PostAsJsonAsync("/api/appointments", Booking(seed, startsAt));
+
+        await AssertProblemAsync(await client.PostAsJsonAsync("/api/appointments", Booking(seed, startsAt)),
+            HttpStatusCode.BadRequest, "Randevu oluşturulamadı.");
+        await AssertProblemAsync(await client.GetAsync($"/api/pets/{seed.PetB.Id}/vaccines"),
+            HttpStatusCode.NotFound, "Hayvan bulunamadı.");
+    }
+
+    // Çerezle kimlik doğrulanan POST'a karşı CSRF koruması: yalnız JSON kabul edilir (form/text başka siteden
+    // ön kontrolsüz gönderilebilir, JSON gönderilemez) ve çerez SameSite=Lax'tır.
+    [Theory]
+    [InlineData("application/x-www-form-urlencoded", "petId=1")]
+    [InlineData("text/plain", "{\"petId\":1}")]
+    public async Task Non_json_post_is_415(string contentType, string body)
+    {
+        await web.Database.ResetAsync();
+        var client = await As("ownera@test.local");
+
+        var response = await client.PostAsync("/api/appointments", new StringContent(body, System.Text.Encoding.UTF8, contentType));
+
+        await AssertProblemAsync(response, HttpStatusCode.UnsupportedMediaType, "JSON");
+    }
+
+    [Theory]
+    [InlineData("from=01.11.2026&to=30.11.2026", "yyyy-MM-dd")]       // Türkçe yazım sessizce yanlış okunmaz
+    [InlineData("from=2025-01-01&to=2026-11-30", "en fazla bir yıl")]
+    [InlineData("from=2026-01-01&to=9999-12-31", "Tarih geçersiz")]
+    [InlineData("from=2026-11-30&to=2026-11-01", "Başlangıç tarihi")]
+    public async Task Report_rejects_bad_ranges(string query, string message)
+    {
+        await web.Database.ResetAsync();
+        var admin = await As("admin@test.local");
+
+        var response = await admin.GetAsync($"/api/reports/services?{query}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
+        Assert.Contains(message, await response.Content.ReadAsStringAsync());
+    }
+
+    [Theory]
+    [InlineData("to=2025-02-10", "2025-02-01", "2025-02-10")]
+    [InlineData("from=2025-02-10", "2025-02-10", "2025-02-28")]
+    public async Task Report_fills_missing_bound_from_the_given_month(string query, string from, string to)
+    {
+        await web.Database.ResetAsync();
+        var admin = await As("admin@test.local");
+
+        var body = await JsonAsync(await admin.GetAsync($"/api/reports/services?{query}"));
+
+        Assert.Equal(from, body.GetProperty("from").GetString());
+        Assert.Equal(to, body.GetProperty("to").GetString());
+    }
+
+    [Fact]
+    public async Task Available_explains_unusable_dates_and_vets()
+    {
+        var seed = await web.Database.ResetAsync();
+        var client = await As("ownera@test.local");
+        var url = $"/api/veterinarians/available?serviceId={seed.Examination.Id}&date=";
+        var today = DateOnly.FromDateTime(DateTime.Today);
+
+        var past = await client.GetAsync(url + today.AddDays(-1).ToString("yyyy-MM-dd"));
+        var far = await client.GetAsync(url + today.AddDays(61).ToString("yyyy-MM-dd"));
+        var turkish = await client.GetAsync(url + NextWeekday().ToString("dd.MM.yyyy"));
+        var noVet = await client.GetAsync(url + NextWeekday().ToString("yyyy-MM-dd") + "&veterinarianId=999999");
+        var badService = await client.GetAsync($"/api/veterinarians/available?serviceId=abc&date={NextWeekday():yyyy-MM-dd}");
+
+        Assert.Equal(HttpStatusCode.BadRequest, past.StatusCode);
+        Assert.Contains("geçmiş", await past.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, far.StatusCode);
+        Assert.Contains("60 gün", await far.Content.ReadAsStringAsync());
+        Assert.Equal(HttpStatusCode.BadRequest, turkish.StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, noVet.StatusCode);
+        Assert.Contains("serviceId", await badService.Content.ReadAsStringAsync());
+    }
+
+    [Fact]
+    public async Task Other_vet_cannot_read_appointment_but_own_vet_sees_vaccines()
+    {
+        var seed = await web.Database.ResetAsync();
+        var created = await (await As("ownera@test.local")).PostAsJsonAsync("/api/appointments",
+            Booking(seed, NextWeekday().ToDateTime(new TimeOnly(13, 0))));
+        var id = (await JsonAsync(created)).GetProperty("id").GetInt32();
+        var vetA = await As("veta@test.local");
+        var vetB = await As("vetb@test.local");
+
+        Assert.Equal(HttpStatusCode.OK, (await vetA.GetAsync($"/api/appointments/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await vetB.GetAsync($"/api/appointments/{id}")).StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await vetA.GetAsync($"/api/pets/{seed.PetA.Id}/vaccines")).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await vetB.GetAsync($"/api/pets/{seed.PetA.Id}/vaccines")).StatusCode);
+    }
+
+    [Fact]
+    public async Task Utc_start_time_is_converted_to_clinic_time()
+    {
+        var seed = await web.Database.ResetAsync();
+        var client = await As("ownera@test.local");
+        var local = NextWeekday().ToDateTime(new TimeOnly(14, 0));
+
+        var response = await client.PostAsJsonAsync("/api/appointments", new
+        {
+            petId = seed.PetA.Id, serviceId = seed.Examination.Id, veterinarianId = seed.VetA.Id,
+            startsAt = local.AddHours(-3).ToString("yyyy-MM-ddTHH:mm:ss") + "Z", // İstanbul UTC+3
+        });
+
+        Assert.Equal(HttpStatusCode.Created, response.StatusCode);
+        Assert.Equal(local, (await JsonAsync(response)).GetProperty("startsAt").GetDateTime());
+    }
 }

@@ -31,7 +31,9 @@ public static class IdentitySetup
             options.LogoutPath = "/Account/Logout";
             options.AccessDeniedPath = "/Account/AccessDenied";
 
-            // REST API istemcisi HTML giriş sayfasına yönlendirilmez: 401 (giriş yok) / 403 (yetki yok).
+            // REST API istemcisi HTML giriş sayfasına yönlendirilmez: 401 (giriş yok) / 403 (yetki yok);
+            // gövdeyi Program.cs'teki /api durum kodu sayfası yazar. Not: varsayılan işleyicinin AJAX
+            // (X-Requested-With) dalı kullanılmıyor; MVC tarafında buna bağlı bir kod yok.
             options.Events.OnRedirectToLogin = context => ApiAwareRedirect(context, StatusCodes.Status401Unauthorized);
             options.Events.OnRedirectToAccessDenied = context => ApiAwareRedirect(context, StatusCodes.Status403Forbidden);
         });

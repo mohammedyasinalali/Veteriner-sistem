@@ -11,8 +11,9 @@ namespace VetKlinik.Web.Services;
 /// <summary>Hekimler: giriş hesabı, uzmanlıklar, verdiği hizmetler ve haftalık müsaitlik.</summary>
 public class VeterinarianService(AppDbContext db, UserManager<ApplicationUser> userManager, ClinicService clinics)
 {
-    public Task<List<Veterinarian>> ListAsync() =>
+    public Task<List<Veterinarian>> ListAsync(bool activeOnly = false) =>
         db.Veterinarians
+            .Where(v => !activeOnly || v.IsActive)
             .Include(v => v.User)
             .Include(v => v.Specialties)
             .Include(v => v.Services)
